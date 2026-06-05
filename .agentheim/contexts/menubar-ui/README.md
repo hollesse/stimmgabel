@@ -1,0 +1,48 @@
+# menubar-ui
+
+## Purpose
+Present Stimmgabel's only user-visible surface: a menu-bar icon plus a dropdown with two mute toggles and a "consumer attached?" status indicator. Nothing else — no preferences window, no profiles, no hotkeys, no level meters.
+
+## Classification
+**supporting**
+
+The value of Stimmgabel lives in `audio-engine`; this context is here to make that engine controllable and observable by the human.
+
+## Actors
+- **The human user** — the only direct consumer. Glances at the menu bar to confirm status, opens the dropdown to mute a side, mostly forgets the app exists.
+- **audio-engine** — sibling in the same process. Receives mute commands; exposes state the UI reflects (consumer attached, current device names).
+
+## Ubiquitous language
+
+- **Menu-bar icon** — the always-present icon in the macOS menu bar. Tells the user at a glance whether Stimmgabel is idle or active.
+- **Icon state** — one of:
+  - *idle* — no consumer attached; engine is asleep.
+  - *active* — at least one consumer is reading; engine is running.
+  - *muted (one side)* — variant rendering to make a non-default mute state visible at a glance.
+- **Dropdown** — the menu that opens when the user clicks the icon. Contains the mute toggles, the status indicator, and (presumably) a Quit item.
+- **Mute toggle** — a checkable menu item per side ("Mic" / "System audio"). Toggling it sends a command to `audio-engine`.
+- **Status indicator** — a line in the dropdown showing whether a consumer is currently attached, and (when active) the names of the current mic and system-output devices.
+- **Login item** — the macOS facility that auto-launches Stimmgabel at login. The UI's first-run flow asks whether to enable this.
+- **App state** — the user-visible state the UI renders. Distinct from internal engine state; this is the projection.
+
+## Aggregates
+
+Tactical modelling pending. Likely a single small aggregate:
+
+- **AppShell** — protects the invariant *"the menu-bar icon and dropdown always reflect current engine state within one render cycle"*.
+
+## Key events
+- **UserToggledSideMute(side)** — user clicked a mute toggle.
+- **UserOpenedDropdown** — useful for refreshing the device-name display.
+
+## Key commands (issued to audio-engine)
+- **SetSideMute(side, on/off)**
+
+## Relationships with other contexts
+- **Partnership with audio-engine** — small shared interface. See `context-map.md`.
+- **No styleguide gate** — Stimmgabel has no `design-system` BC (see `context-map.md` for rationale). Frontend tasks in this BC do *not* depend on a styleguide task. If a `design-system` BC is later added, update this note.
+
+## Open questions
+- Mute-state persistence across app restart / reboot — assumed yes; storage mechanism TBD by architect.
+- First-launch onboarding — what minimum does the user see / approve? At least: microphone permission, system-audio capture permission (whatever the chosen mechanism requires), optional "Add to login items?". Out of scope for vision, in scope for first decision/feature tasks.
+- How icon states render — emoji? SF Symbol? Custom asset? Architect / design choice, deferred until first UI task.

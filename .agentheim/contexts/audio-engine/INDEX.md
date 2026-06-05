@@ -1,0 +1,55 @@
+# audio-engine — Index
+
+Catalog of everything in this bounded context: tasks by status, ADRs scoped to this BC,
+research touching this BC, and concept synthesis pages.
+
+> Updated by: `model` (tasks), `work` (BC-scoped ADRs, concept page links), `research` (BC-scoped reports).
+
+---
+
+## Tasks by status
+
+<!-- task-counts:start -->
+- **Backlog:** 0
+- **Todo:** 1
+- **Doing:** 0
+- **Done:** 1
+<!-- task-counts:end -->
+
+### Todo
+<!-- todo-list:start -->
+- **audio-engine-002** — Decision — mute effect on upstream capture (v1 zero-in-mix; v1 architecture preserves v2 suspend-on-mute) — depends_on: [audio-engine-001] — `todo/audio-engine-002-mute-effect-on-upstream-capture.md`
+<!-- todo-list:end -->
+
+### Doing
+<!-- doing-list:start -->
+<!-- doing-list:end -->
+
+### Done (most recent first; older entries kept for prior-art search)
+<!-- done-list:start -->
+- **audio-engine-001** — Decision — microphone capture & default-device tracking — `done/audio-engine-001-microphone-capture-and-default-device-tracking.md`
+<!-- done-list:end -->
+
+### Backlog
+<!-- backlog-list:start -->
+<!-- backlog-list:end -->
+
+## ADRs scoped to this BC
+
+<!-- adr-local:start -->
+- **0006** — Capture the mic side via CoreAudio HAL with property-listener-based default-device tracking — 2026-06-05 — `knowledge/decisions/0006-microphone-capture-and-default-device-tracking.md`
+<!-- adr-local:end -->
+
+## Research touching this BC
+
+<!-- research-local:start -->
+<!-- research-local:end -->
+
+## Concepts (opt-in synthesis pages)
+
+<!-- concepts:start -->
+<!-- concepts:end -->
+
+## Pointers
+
+- BC README (ubiquitous language, invariants): `README.md`
