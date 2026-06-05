@@ -44,5 +44,10 @@ let package = Package(
             dependencies: ["DriverIPC"],
             path: "Tests/DriverIPCTests"
         ),
+        .testTarget(
+            name: "MenubarUITests",
+            dependencies: ["MenubarUI"],
+            path: "Tests/MenubarUITests"
+        ),
     ]
 )

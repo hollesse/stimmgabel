@@ -7,11 +7,36 @@ import AudioEngine
 /// the entry point, so it can call `StimmgabelApp.main()` explicitly. This avoids
 /// the `@main` / `main.swift` conflict when the SPM module is embedded in an app target.
 public struct StimmgabelApp: App {
-    public init() {}
+
+    @StateObject private var viewModel: AppViewModel
+
+    public init() {
+        // AppViewModel(convenience) creates the pipeline, output adapter, and
+        // reads persisted mute state from UserDefaults before any consumer attaches
+        // (ADR 0007).
+        //
+        // SystemAudioAdapter requires macOS 14.2; the convenience init is gated on it.
+        // At runtime on 14.0–14.1 the app creates a no-op pipeline with only mic capture.
+        if #available(macOS 14.2, *) {
+            _viewModel = StateObject(wrappedValue: AppViewModel())
+        } else {
+            let pipeline = AudioPipeline(
+                micAdapter: MicAdapter(),
+                systemAudioAdapter: MicAdapter() // placeholder — system-audio not available
+            )
+            _viewModel = StateObject(wrappedValue: AppViewModel(pipeline: pipeline))
+        }
+    }
 
     public var body: some Scene {
-        MenuBarExtra("Stimmgabel", systemImage: "mic.fill") {
+        MenuBarExtra {
             MenuBarView()
+                .environmentObject(viewModel)
+        } label: {
+            // Icon updates within one runloop cycle of a mute or state change
+            // because viewModel is @StateObject and menuBarIconName is computed
+            // from @Published properties (ADR 0007).
+            Image(systemName: viewModel.menuBarIconName)
         }
     }
 }

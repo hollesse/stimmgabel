@@ -3,17 +3,23 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 56;
+	objectVersion = 60;
 	objects = {
 
 /* Begin PBXBuildFile section */
 		AA000001 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100001 /* main.swift */; };
 		AA000010 /* StimmgabelDriver.c in Sources */ = {isa = PBXBuildFile; fileRef = AA100010 /* StimmgabelDriver.c */; };
-		AA000020 /* Stimmgabel.driver in Copy Files */ = {isa = PBXBuildFile; fileRef = AA200020 /* Stimmgabel.driver */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		AA000020 /* Stimmgabel.driver in Embed Driver in Resources */ = {isa = PBXBuildFile; fileRef = AA200020 /* Stimmgabel.driver */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		AA000030 /* CoreAudio.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AA300030 /* CoreAudio.framework */; };
 		AA000031 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AA300031 /* CoreFoundation.framework */; };
 		AA000032 /* AudioToolbox.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AA300032 /* AudioToolbox.framework */; };
 		AA000050 /* AudioPipelineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100050 /* AudioPipelineTests.swift */; };
+		AA000060 /* MutePreferencesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100060 /* MutePreferencesTests.swift */; };
+		AA000061 /* AppViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100061 /* AppViewModelTests.swift */; };
+		AA000062 /* MenubarUI in Frameworks */ = {isa = PBXBuildFile; productRef = AAPKG004 /* MenubarUI */; };
+		C133DB912FD2E62F00A24354 /* AudioEngine in Frameworks */ = {isa = PBXBuildFile; productRef = AAPKG001 /* AudioEngine */; };
+		C133DB922FD2E62F00A24354 /* MenubarUI in Frameworks */ = {isa = PBXBuildFile; productRef = AAPKG002 /* MenubarUI */; };
+		C133DB932FD2E62F00A24354 /* AudioEngine in Frameworks */ = {isa = PBXBuildFile; productRef = AAPKG003 /* AudioEngine */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -21,7 +27,7 @@
 			isa = PBXContainerItemProxy;
 			containerPortal = AA500001 /* Project object */;
 			proxyType = 1;
-			remoteGlobalIDString = AA600020 /* StimmgabelDriver target */;
+			remoteGlobalIDString = AA600020;
 			remoteInfo = StimmgabelDriver;
 		};
 /* End PBXContainerItemProxy section */
@@ -33,7 +39,7 @@
 			dstPath = "";
 			dstSubfolderSpec = 7;
 			files = (
-				AA000020 /* Stimmgabel.driver in Copy Files */,
+				AA000020 /* Stimmgabel.driver in Embed Driver in Resources */,
 			);
 			name = "Embed Driver in Resources";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -44,9 +50,12 @@
 		AA100001 /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = main.swift; path = Stimmgabel/main.swift; sourceTree = "<group>"; };
 		AA100010 /* StimmgabelDriver.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = StimmgabelDriver.c; path = StimmgabelDriver/StimmgabelDriver.c; sourceTree = "<group>"; };
 		AA100011 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = Info.plist; path = StimmgabelDriver/Info.plist; sourceTree = "<group>"; };
-		AA100050 /* AudioPipelineTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AudioPipelineTests.swift; path = "../Tests/AudioEngineTests/AudioPipelineTests.swift"; sourceTree = "<group>"; };
-		AA200020 /* Stimmgabel.driver */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = Stimmgabel.driver; sourceTree = BUILT_PRODUCTS_DIR; };
+		AA100050 /* AudioPipelineTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AudioPipelineTests.swift; path = ../Tests/AudioEngineTests/AudioPipelineTests.swift; sourceTree = "<group>"; };
+		AA100060 /* MutePreferencesTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MutePreferencesTests.swift; path = ../Tests/MenubarUITests/MutePreferencesTests.swift; sourceTree = "<group>"; };
+		AA100061 /* AppViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppViewModelTests.swift; path = ../Tests/MenubarUITests/AppViewModelTests.swift; sourceTree = "<group>"; };
+		AA200060 /* MenubarUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MenubarUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		AA200001 /* Stimmgabel.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Stimmgabel.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		AA200020 /* Stimmgabel.driver */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = Stimmgabel.driver; sourceTree = BUILT_PRODUCTS_DIR; };
 		AA200050 /* AudioEngineTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AudioEngineTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		AA300030 /* CoreAudio.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreAudio.framework; path = System/Library/Frameworks/CoreAudio.framework; sourceTree = SDKROOT; };
 		AA300031 /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = System/Library/Frameworks/CoreFoundation.framework; sourceTree = SDKROOT; };
@@ -54,14 +63,16 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
-		AA800010 /* Frameworks (app) */ = {
+		AA800010 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				C133DB922FD2E62F00A24354 /* MenubarUI in Frameworks */,
+				C133DB912FD2E62F00A24354 /* AudioEngine in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		AA800020 /* Frameworks (driver) */ = {
+		AA800020 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -71,22 +82,32 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		AA800050 /* Frameworks (tests) */ = {
+		AA800050 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				C133DB932FD2E62F00A24354 /* AudioEngine in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AA800060 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AA000062 /* MenubarUI in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
-		AA900001 /* Root */ = {
+		AA900001 = {
 			isa = PBXGroup;
 			children = (
 				AA900010 /* Stimmgabel */,
 				AA900020 /* StimmgabelDriver */,
 				AA900050 /* AudioEngineTests */,
+				AA900060 /* MenubarUITests */,
 				AA900030 /* Frameworks */,
 				AA900040 /* Products */,
 			);
@@ -109,14 +130,6 @@
 			name = StimmgabelDriver;
 			sourceTree = "<group>";
 		};
-		AA900050 /* AudioEngineTests */ = {
-			isa = PBXGroup;
-			children = (
-				AA100050 /* AudioPipelineTests.swift */,
-			);
-			name = AudioEngineTests;
-			sourceTree = "<group>";
-		};
 		AA900030 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
@@ -133,8 +146,26 @@
 				AA200001 /* Stimmgabel.app */,
 				AA200020 /* Stimmgabel.driver */,
 				AA200050 /* AudioEngineTests.xctest */,
+				AA200060 /* MenubarUITests.xctest */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		AA900050 /* AudioEngineTests */ = {
+			isa = PBXGroup;
+			children = (
+				AA100050 /* AudioPipelineTests.swift */,
+			);
+			name = AudioEngineTests;
+			sourceTree = "<group>";
+		};
+		AA900060 /* MenubarUITests */ = {
+			isa = PBXGroup;
+			children = (
+				AA100060 /* MutePreferencesTests.swift */,
+				AA100061 /* AppViewModelTests.swift */,
+			);
+			name = MenubarUITests;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -151,7 +182,7 @@
 			buildRules = (
 			);
 			dependencies = (
-				AA601001 /* StimmgabelDriver dependency */,
+				AA601001 /* PBXTargetDependency */,
 			);
 			name = Stimmgabel;
 			packageProductDependencies = (
@@ -191,10 +222,29 @@
 			);
 			name = AudioEngineTests;
 			packageProductDependencies = (
-				AAPKG003 /* AudioEngine (test) */,
+				AAPKG003 /* AudioEngine */,
 			);
 			productName = AudioEngineTests;
 			productReference = AA200050 /* AudioEngineTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		AA600060 /* MenubarUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = AACL0060 /* Build configuration list for PBXNativeTarget "MenubarUITests" */;
+			buildPhases = (
+				AAB00060 /* Sources */,
+				AA800060 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = MenubarUITests;
+			packageProductDependencies = (
+				AAPKG004 /* MenubarUI */,
+			);
+			productName = MenubarUITests;
+			productReference = AA200060 /* MenubarUITests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
 /* End PBXNativeTarget section */
@@ -214,6 +264,9 @@
 						CreatedOnToolsVersion = 16.0;
 					};
 					AA600050 = {
+						CreatedOnToolsVersion = 16.0;
+					};
+					AA600060 = {
 						CreatedOnToolsVersion = 16.0;
 					};
 				};
@@ -237,6 +290,7 @@
 				AA600001 /* Stimmgabel */,
 				AA600020 /* StimmgabelDriver */,
 				AA600050 /* AudioEngineTests */,
+				AA600060 /* MenubarUITests */,
 			);
 		};
 /* End PBXProject section */
@@ -266,10 +320,19 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		AAB00060 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AA000060 /* MutePreferencesTests.swift in Sources */,
+				AA000061 /* AppViewModelTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
-		AA601001 /* StimmgabelDriver dependency */ = {
+		AA601001 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = AA600020 /* StimmgabelDriver */;
 			targetProxy = AA400001 /* PBXContainerItemProxy */;
@@ -392,7 +455,7 @@
 			};
 			name = Release;
 		};
-		AABCX010 /* Debug (app) */ = {
+		AABCX010 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_IDENTITY = "-";
@@ -402,7 +465,7 @@
 				INFOPLIST_KEY_LSUIElement = YES;
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Stimmgabel routes microphone audio to a virtual input device.";
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "com.innoq.stimmgabel";
+				PRODUCT_BUNDLE_IDENTIFIER = com.innoq.stimmgabel;
 				PRODUCT_NAME = Stimmgabel;
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SKIP_INSTALL = NO;
@@ -411,7 +474,7 @@
 			};
 			name = Debug;
 		};
-		AABCX011 /* Release (app) */ = {
+		AABCX011 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_IDENTITY = "-";
@@ -421,7 +484,7 @@
 				INFOPLIST_KEY_LSUIElement = YES;
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Stimmgabel routes microphone audio to a virtual input device.";
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "com.innoq.stimmgabel";
+				PRODUCT_BUNDLE_IDENTIFIER = com.innoq.stimmgabel;
 				PRODUCT_NAME = Stimmgabel;
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SKIP_INSTALL = NO;
@@ -430,15 +493,16 @@
 			};
 			name = Release;
 		};
-		AABCX020 /* Debug (driver) */ = {
+		AABCX020 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CODE_SIGN_IDENTITY = "-";
-				CODE_SIGN_STYLE = Manual;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = 3C96LH326Y;
 				INFOPLIST_FILE = StimmgabelDriver/Info.plist;
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
 				OTHER_CODE_SIGN_FLAGS = "--deep";
-				PRODUCT_BUNDLE_IDENTIFIER = "com.innoq.stimmgabel.driver";
+				PRODUCT_BUNDLE_IDENTIFIER = com.innoq.stimmgabel.driver;
 				PRODUCT_NAME = Stimmgabel;
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SKIP_INSTALL = YES;
@@ -446,15 +510,16 @@
 			};
 			name = Debug;
 		};
-		AABCX021 /* Release (driver) */ = {
+		AABCX021 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CODE_SIGN_IDENTITY = "-";
-				CODE_SIGN_STYLE = Manual;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = 3C96LH326Y;
 				INFOPLIST_FILE = StimmgabelDriver/Info.plist;
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
 				OTHER_CODE_SIGN_FLAGS = "--deep";
-				PRODUCT_BUNDLE_IDENTIFIER = "com.innoq.stimmgabel.driver";
+				PRODUCT_BUNDLE_IDENTIFIER = com.innoq.stimmgabel.driver;
 				PRODUCT_NAME = Stimmgabel;
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SKIP_INSTALL = YES;
@@ -462,29 +527,57 @@
 			};
 			name = Release;
 		};
-		AABCX050 /* Debug (tests) */ = {
+		AABCX050 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Manual;
 				GENERATE_INFOPLIST_FILE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "com.innoq.stimmgabel.AudioEngineTests";
+				PRODUCT_BUNDLE_IDENTIFIER = com.innoq.stimmgabel.AudioEngineTests;
 				PRODUCT_NAME = AudioEngineTests;
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SWIFT_VERSION = 5;
 			};
 			name = Debug;
 		};
-		AABCX051 /* Release (tests) */ = {
+		AABCX051 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Manual;
 				GENERATE_INFOPLIST_FILE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "com.innoq.stimmgabel.AudioEngineTests";
+				PRODUCT_BUNDLE_IDENTIFIER = com.innoq.stimmgabel.AudioEngineTests;
 				PRODUCT_NAME = AudioEngineTests;
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				SWIFT_VERSION = 5;
+			};
+			name = Release;
+		};
+		AABCX060 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Manual;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.innoq.stimmgabel.MenubarUITests;
+				PRODUCT_NAME = MenubarUITests;
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				SWIFT_VERSION = 5;
+			};
+			name = Debug;
+		};
+		AABCX061 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Manual;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.innoq.stimmgabel.MenubarUITests;
+				PRODUCT_NAME = MenubarUITests;
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SWIFT_VERSION = 5;
 			};
@@ -529,12 +622,21 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;
 		};
+		AACL0060 /* Build configuration list for PBXNativeTarget "MenubarUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AABCX060 /* Debug */,
+				AABCX061 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
 		AASP0001 /* XCLocalSwiftPackageReference "../" */ = {
 			isa = XCLocalSwiftPackageReference;
-			relativePath = "../";
+			relativePath = ../;
 		};
 /* End XCLocalSwiftPackageReference section */
 
@@ -549,13 +651,17 @@
 			package = AASP0001 /* XCLocalSwiftPackageReference "../" */;
 			productName = MenubarUI;
 		};
-		AAPKG003 /* AudioEngine (test) */ = {
+		AAPKG003 /* AudioEngine */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = AASP0001 /* XCLocalSwiftPackageReference "../" */;
 			productName = AudioEngine;
 		};
+		AAPKG004 /* MenubarUI */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = AASP0001 /* XCLocalSwiftPackageReference "../" */;
+			productName = MenubarUI;
+		};
 /* End XCSwiftPackageProductDependency section */
-
 	};
 	rootObject = AA500001 /* Project object */;
 }

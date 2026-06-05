@@ -42,7 +42,22 @@ Tactical modelling pending. Likely a single small aggregate:
 - **Partnership with audio-engine** — small shared interface. See `context-map.md`.
 - **No styleguide gate** — Stimmgabel has no `design-system` BC (see `context-map.md` for rationale). Frontend tasks in this BC do *not* depend on a styleguide task. If a `design-system` BC is later added, update this note.
 
+## Implementation status
+
+### What exists (menubar-ui-002)
+
+- `MutePreferences` — value type backed by `UserDefaults`. Keys: `com.innoq.stimmgabel.muteMicSide`, `com.innoq.stimmgabel.muteSystemAudioSide`. Defaults to `false` for both sides.
+- `AppViewModel` — `@MainActor ObservableObject`. Holds `AudioPipeline` and `DriverOutputAdapter`. On init: reads persisted mute, applies to pipeline. On toggle: persists + calls `AudioPipeline.setSideMute`. Exposes `menuBarIconName` (computed, SF Symbols).
+- `StimmgabelApp` — `MenuBarExtra` wired to `AppViewModel`. Icon: `waveform.slash` (idle), `waveform` (active), `waveform.badge.minus` (active + at least one side muted).
+- `MenuBarView` — two checkable menu items ("Mic", "System audio"), separator, Quit.
+
+### Icon states (implemented)
+
+- *idle*: `waveform.slash` — no consumer attached; engine is asleep.
+- *active*: `waveform` — consumer reading, no mutes.
+- *muted (one side)*: `waveform.badge.minus` — at least one side muted; visible at a glance.
+
 ## Open questions
-- Mute-state persistence across app restart / reboot — **resolved**: `UserDefaults.standard` behind a `MutePreferences` value type (ADR 0007).
+- Mute-state persistence across app restart / reboot — **resolved**: `UserDefaults.standard` behind `MutePreferences` (ADR 0007). **Implemented** in menubar-ui-002.
 - First-launch onboarding — what minimum does the user see / approve? At least: microphone permission, system-audio capture permission (whatever the chosen mechanism requires), optional "Add to login items?". Out of scope for vision, in scope for first decision/feature tasks.
-- How icon states render — emoji? SF Symbol? Custom asset? Architect / design choice, deferred until first UI task.
+- Login-item registration — not yet implemented.
