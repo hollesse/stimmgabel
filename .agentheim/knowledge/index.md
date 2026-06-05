@@ -19,6 +19,7 @@ For BC-scoped artifacts, see each BC's `INDEX.md`.
 ## Global ADRs (scope: global)
 
 <!-- adr-global:start -->
+- **0009** — Three-tier testing: XCTest units on CI, live-audio integration on real Mac, manual smoke checklist — 2026-06-05 — `knowledge/decisions/0009-testing-strategy.md`
 - **0008** — SPM modules + thin Xcode app target; ad-hoc sign v1, Developer ID + notarise v2 — 2026-06-05 — `knowledge/decisions/0008-build-and-release-tooling.md`
 - **0005** — Audio Server Plugin for virtual mic publishing; system-domain install with ad-hoc signing — 2026-06-05 — `knowledge/decisions/0005-virtual-mic-publishing-mechanism.md`
 - **0004** — CoreAudio Process Tap API for system-audio capture; minimum macOS 14.4 (Sonoma) — 2026-06-05 — `knowledge/decisions/0004-system-audio-capture-mechanism.md`

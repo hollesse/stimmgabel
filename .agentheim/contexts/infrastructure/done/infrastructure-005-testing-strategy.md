@@ -1,16 +1,16 @@
 ---
 id: infrastructure-005
 title: Decision — testing strategy
-status: todo
+status: done
 type: decision
 context: infrastructure
 created: 2026-06-05
-completed:
+completed: 2026-06-05
 commit:
 depends_on: [infrastructure-001]
 blocks: []
 tags: [foundation, testing, ci]
-related_adrs: []
+related_adrs: [0009]
 related_research: []
 prior_art: []
 ---
@@ -28,6 +28,10 @@ Commit ADR 0009 capturing the architect's recommendation: **three-tier strategy*
 - [ ] The Tier 1 structural requirement (adapter protocols for platform integration points) is clearly stated so subsequent worker tasks honour it.
 - [ ] `knowledge/index.md` updated under `<!-- adr-global:start -->`.
 - [ ] No code changes.
+
+## Outcome
+
+ADR 0009 written at `.agentheim/knowledge/decisions/0009-testing-strategy.md`. The three-tier strategy is captured with `scope: global`, `status: accepted`. Tier 1 structural requirement — adapter protocols for platform integration points (mic capture, system-audio tap, virtual-mic publishing) — is explicitly stated so subsequent audio-engine worker tasks know to expose those protocols and wire fakes in tests.
 
 ## Notes
 

@@ -5,6 +5,18 @@ Newest entries on top.
 
 ---
 
+## 2026-06-05 12:38 -- Task completed (verification skipped): infrastructure-005 - Decision — testing strategy
+
+**Type:** Work / Task completion
+**Task:** infrastructure-005 - Decision — testing strategy
+**Summary:** ADR 0009 written: three-tier strategy — Tier 1 XCTest unit tests on CI with adapter-protocol fakes (mix logic, state machine, mute persistence, UI projection), Tier 2 live-audio integration on a real Mac (gated by env var), Tier 3 manual smoke checklist per release. Adapter protocols at platform integration points is the Tier 1 structural cost. Scope: global.
+**Verification:** SKIPPED — decision-only task (type: decision, FILES_CHANGED == 1, single ADR file)
+**Commit:** (pending)
+**Files changed:** 1
+**ADRs written:** 0009-testing-strategy.md
+
+---
+
 ## 2026-06-05 12:35 -- Batch started: [infrastructure-005]
 
 **Type:** Work / Batch start

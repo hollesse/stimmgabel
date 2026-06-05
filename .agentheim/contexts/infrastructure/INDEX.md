@@ -12,8 +12,8 @@ research touching this BC, and concept synthesis pages.
 <!-- task-counts:start -->
 - **Backlog:** 0
 - **Todo:** 1
-- **Doing:** 1
-- **Done:** 4
+- **Doing:** 0
+- **Done:** 5
 <!-- task-counts:end -->
 
 ### Todo
@@ -23,11 +23,11 @@ research touching this BC, and concept synthesis pages.
 
 ### Doing
 <!-- doing-list:start -->
-- **infrastructure-005** — Decision — testing strategy — `doing/infrastructure-005-testing-strategy.md`
 <!-- doing-list:end -->
 
 ### Done (most recent first; older entries kept for prior-art search)
 <!-- done-list:start -->
+- **infrastructure-005** — Decision — testing strategy — `done/infrastructure-005-testing-strategy.md`
 - **infrastructure-004** — Decision — build & release tooling — `done/infrastructure-004-build-and-release-tooling.md`
 - **infrastructure-003** — Decision — virtual-mic publishing mechanism — `done/infrastructure-003-virtual-mic-publishing-mechanism.md`
 - **infrastructure-002** — Decision — system-audio capture mechanism — `done/infrastructure-002-system-audio-capture-mechanism.md`

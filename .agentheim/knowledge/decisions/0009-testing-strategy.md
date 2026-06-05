@@ -1,40 +1,4 @@
 ---
-id: infrastructure-005
-title: Decision — testing strategy
-status: todo
-type: decision
-context: infrastructure
-created: 2026-06-05
-completed:
-commit:
-depends_on: [infrastructure-001]
-blocks: []
-tags: [foundation, testing, ci]
-related_adrs: []
-related_research: []
-prior_art: []
----
-
-## Why
-A CoreAudio-integrated app cannot fully test on hosted CI runners. The testing strategy has to be honest about that — naming which tiers exist, what they buy, and what runs where — so workers know how to structure code for testability and so we don't pretend coverage means more than it does.
-
-This task depends on `infrastructure-001` (language & UI framework) because the testing approach assumes Swift / XCTest and a two-module SPM split.
-
-## What
-Commit ADR 0009 capturing the architect's recommendation: **three-tier strategy** — Tier 1 XCTest units on CI (mix logic, state machine, mute persistence, all with adapter-protocol fakes), Tier 2 live-audio integration tests on a real Mac (gated behind an env var), Tier 3 manual smoke checklist per release.
-
-## Acceptance criteria
-- [ ] `knowledge/decisions/0009-testing-strategy.md` exists with `scope: global`, `status: accepted`.
-- [ ] The Tier 1 structural requirement (adapter protocols for platform integration points) is clearly stated so subsequent worker tasks honour it.
-- [ ] `knowledge/index.md` updated under `<!-- adr-global:start -->`.
-- [ ] No code changes.
-
-## Notes
-
-Architect draft (paste into the ADR with id `0009`, status `accepted`, date `2026-06-05`):
-
-```markdown
----
 id: 0009
 title: Three-tier testing — XCTest units on CI, live-audio integration on a real Mac, manual smoke checklist per release
 scope: global
@@ -120,4 +84,3 @@ The checklist is the only thing that proves the end-to-end story works. Tier 1 a
 - `audio-engine/README.md` — testability mention; aggregates that need state-machine coverage
 - `vision.md` — Users: single-user v1, then a small INNOQ team
 - ADR 0002 — bounded contexts; this strategy reflects all three BCs
-```
