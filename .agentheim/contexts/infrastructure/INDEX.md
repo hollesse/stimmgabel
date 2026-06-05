@@ -11,18 +11,18 @@ research touching this BC, and concept synthesis pages.
 
 <!-- task-counts:start -->
 - **Backlog:** 0
-- **Todo:** 1
-- **Doing:** 0
+- **Todo:** 0
+- **Doing:** 1
 - **Done:** 5
 <!-- task-counts:end -->
 
 ### Todo
 <!-- todo-list:start -->
-- **infrastructure-006** — Walking skeleton — minimal end-to-end audio path — depends_on: [infrastructure-001, infrastructure-002, infrastructure-003, infrastructure-004, infrastructure-005, audio-engine-001, audio-engine-002, menubar-ui-001] — `todo/infrastructure-006-walking-skeleton.md`
 <!-- todo-list:end -->
 
 ### Doing
 <!-- doing-list:start -->
+- **infrastructure-006** — Walking skeleton — minimal end-to-end audio path — `doing/infrastructure-006-walking-skeleton.md`
 <!-- doing-list:end -->
 
 ### Done (most recent first; older entries kept for prior-art search)

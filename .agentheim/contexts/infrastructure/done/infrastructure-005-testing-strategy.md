@@ -6,7 +6,7 @@ type: decision
 context: infrastructure
 created: 2026-06-05
 completed: 2026-06-05
-commit:
+commit: 003aa3e
 depends_on: [infrastructure-001]
 blocks: []
 tags: [foundation, testing, ci]

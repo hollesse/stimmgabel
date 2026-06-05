@@ -5,6 +5,14 @@ Newest entries on top.
 
 ---
 
+## 2026-06-05 12:42 -- Batch started: [infrastructure-006]
+
+**Type:** Work / Batch start
+**Tasks:** infrastructure-006 - Walking skeleton — minimal end-to-end audio path
+**Parallel:** no (1 worker — only remaining task; this is the first code task)
+
+---
+
 ## 2026-06-05 12:38 -- Task completed (verification skipped): infrastructure-005 - Decision — testing strategy
 
 **Type:** Work / Task completion
