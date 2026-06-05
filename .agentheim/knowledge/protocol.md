@@ -5,6 +5,14 @@ Newest entries on top.
 
 ---
 
+## 2026-06-05 12:28 -- Batch started: [infrastructure-004]
+
+**Type:** Work / Batch start
+**Tasks:** infrastructure-004 - Decision — build & release tooling
+**Parallel:** no (1 worker)
+
+---
+
 ## 2026-06-05 12:26 -- Task completed (verification skipped): infrastructure-003 - Decision — virtual-mic publishing mechanism
 
 **Type:** Work / Task completion
