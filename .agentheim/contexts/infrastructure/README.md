@@ -52,11 +52,17 @@ Not exercised in this spike. The walking skeleton app is **unsandboxed** (no `co
 **Q3 — Install UX acceptability (single `sudo` prompt):**
 **Yes — acceptable for v1.** Single `sudo` prompt confirmed sufficient. No `.pkg` installer needed for the author workflow.
 
-### Driver IPC (infrastructure-008) implementation notes
+### Driver IPC (infrastructure-009) implementation notes — macOS 26
 
-**Ring buffer:** 4096 frames × interleaved float32 stereo, lock-free SP/SR with `_Atomic(uint32_t)` heads. Canonical source in `Sources/DriverIPC/SGRingBuffer.{h,c}`; inlined into `StimmgabelDriver.c` to keep the driver self-contained.
+**macOS 26 sandbox issue:** `xpc_connection_create_mach_service(..., LISTENER)` returns non-NULL but immediately fires `XPC_ERROR_CONNECTION_INVALID` inside the Remote Driver Service sandbox. XPC IPC is not viable.
 
-**XPC service:** Driver registers `com.innoq.stimmgabel.driver` as Mach service listener (Info.plist `AudioServerPlugIn_MachServices`). App connects as client; sends `writeSamples(data:frameCount:)`. Driver sends `setConsumerActive(bool)` back on `StartIO`/`StopIO`. Only one client accepted at a time.
+**SHM transport (ADR 0012):** App creates POSIX SHM `/stimmgabel-audio-v1` via `sg_shm_open` (a thin C wrapper around `shm_open` — required because `shm_open` is variadic and unavailable from Swift). The shared segment holds `SHMAudioBuffer { _Atomic(uint64_t) writePos, readPos; float samples[4096*2]; }` (layout in `Sources/DriverIPC/include/SGSharedAudio.h`). App increments `writePos` with a release barrier after writing; driver reads with `memory_order_acquire`. On teardown, the app calls `sg_shm_unlink`.
+
+**Darwin notify (ADR 0012):** Driver calls `notify_post(SG_NOTIFY_ACTIVE)` on `StartIO` and `notify_post(SG_NOTIFY_INACTIVE)` on `StopIO`. App registers with `notify_register_dispatch` in `SHMDriverIPCConnection.connect()`.
+
+**Swift interop:** `sg_shm_open` / `sg_shm_unlink` are in `Sources/DriverIPC/include/SGSharedMemory.h` (public headers of the `DriverIPC` C target). `AudioEngine` target now depends on `DriverIPC`. The `notify` module is imported in Swift via `import notify` (module is in libSystem, no extra linker flags needed).
+
+**Ring buffer (kept in DriverIPC, tests still pass):** `SGRingBuffer.{h,c}` in `Sources/DriverIPC/` remains — it is tested by `DriverIPCTests`. The driver-internal copy in `StimmgabelDriver.c` was removed in infrastructure-009.
 
 **REFIID on macOS 26:** In macOS 26 SDK, `REFIID = CFUUIDBytes` (struct by value). Compare with `memcmp(&inUUID, bytes, sizeof(CFUUIDBytes))` — do NOT call `CFUUIDGetUUIDBytes()`.
 

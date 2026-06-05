@@ -499,6 +499,7 @@
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = 3C96LH326Y;
+				HEADER_SEARCH_PATHS = "$(SRCROOT)/../Sources/DriverIPC/include";
 				INFOPLIST_FILE = StimmgabelDriver/Info.plist;
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
 				OTHER_CODE_SIGN_FLAGS = "--deep";
@@ -516,6 +517,7 @@
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = 3C96LH326Y;
+				HEADER_SEARCH_PATHS = "$(SRCROOT)/../Sources/DriverIPC/include";
 				INFOPLIST_FILE = StimmgabelDriver/Info.plist;
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
 				OTHER_CODE_SIGN_FLAGS = "--deep";

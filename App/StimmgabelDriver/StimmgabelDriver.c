@@ -2,23 +2,23 @@
 // Audio Server Plugin for Stimmgabel.
 //
 // Exposes a virtual microphone device at 48 kHz / float32 / stereo
-// (non-interleaved). Audio data is sourced from the app process via an XPC
-// service backed by a lock-free ring buffer.
+// (non-interleaved). Audio data is sourced from the app process via POSIX
+// shared memory (SHMAudioBuffer) with Darwin notify signals for consumer-active
+// state changes.
 //
-// IPC architecture (ADR 0005):
-//   - Driver registers Mach service "com.innoq.stimmgabel.driver" (declared in
-//     Info.plist under AudioServerPlugIn_MachServices).
-//   - App (audio-engine) connects as XPC client and calls:
-//       writeSamples(data: float32[], frameCount: uint32)
-//   - Driver calls back on the open connection:
-//       setConsumerActive(active: bool)
-//     when StartIO / StopIO fire so the app can open / tear down its captures.
-//   - DoIOOperation drains the ring buffer; underrun → silence.
+// IPC architecture (ADR 0012):
+//   - App creates POSIX SHM "/stimmgabel-audio-v1" and writes interleaved
+//     stereo float32 frames into SHMAudioBuffer.samples using lock-free
+//     producer/consumer index arithmetic.
+//   - Driver opens the same SHM segment and drains frames in DoIOOperation.
+//   - Consumer-active signals:
+//       StartIO  → notify_post("com.innoq.stimmgabel.consumer-active")
+//       StopIO   → notify_post("com.innoq.stimmgabel.consumer-inactive")
+//     The app registers with notify_register_dispatch to receive these.
 //
-// Ring buffer:
-//   Inlined from Sources/DriverIPC/SGRingBuffer.{h,c} (same logic, tested
-//   separately via the DriverIPCTests SPM target).  Embedding keeps the driver
-//   self-contained without touching the Xcode project's source-file list.
+// On macOS 26, AudioServerPlugins run as Remote Driver Services in a sandbox
+// that blocks Mach service registration; XPC is therefore not viable.
+// This SHM approach is sandbox-safe (ADR 0012).
 //
 // Reference: Apple AudioServerPlugIn.h, Apple SampleAudioDevice example,
 // Background Music BGMDriver, Apple QA1811.
@@ -26,16 +26,22 @@
 #include <CoreAudio/AudioServerPlugIn.h>
 #include <CoreAudio/AudioHardwareBase.h>
 #include <dispatch/dispatch.h>
+#include <fcntl.h>
 #include <mach/mach_time.h>
+#include <notify.h>
 #include <os/log.h>
 #include <pthread.h>
 #include <stdatomic.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <xpc/xpc.h>
+#include <sys/mman.h>
+#include <sys/stat.h>
+#include <unistd.h>
+#include "../../../Sources/DriverIPC/include/SGSharedAudio.h"
 
-#define SGLog(fmt, ...) os_log(OS_LOG_DEFAULT, "[Stimmgabel] " fmt, ##__VA_ARGS__)
+#define SGLog(fmt, ...)      os_log(OS_LOG_DEFAULT, "[Stimmgabel] " fmt, ##__VA_ARGS__)
+#define SGFault(fmt, ...)    os_log_with_type(OS_LOG_DEFAULT, OS_LOG_TYPE_FAULT, "[Stimmgabel][FAULT] " fmt, ##__VA_ARGS__)
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -44,7 +50,6 @@
 #define kDeviceUID           "com.innoq.stimmgabel.virtualmic"
 #define kDeviceName          "Stimmgabel"
 #define kManufacturerName    "INNOQ"
-#define kMachServiceName     "com.innoq.stimmgabel.driver"
 
 #define kSampleRate          48000.0
 #define kChannelCount        2u
@@ -61,71 +66,6 @@
 #define kObjectID_Mute       4u
 
 // ---------------------------------------------------------------------------
-// Lock-free ring buffer (inlined from Sources/DriverIPC/SGRingBuffer.{h,c})
-//
-// Single-producer (XPC callback thread) / single-reader (I/O thread) ring
-// buffer for interleaved stereo float32 audio frames.
-// ---------------------------------------------------------------------------
-
-#define SG_RING_CAPACITY 4096u  // frames; power of 2; ≈85 ms @ 48 kHz
-
-typedef struct {
-    float             samples[SG_RING_CAPACITY * 2u]; // [L0,R0, L1,R1, …]
-    _Atomic(uint32_t) writeHead;
-    _Atomic(uint32_t) readHead;
-} SGRingBuffer;
-
-static inline void SG_RingBuffer_Init(SGRingBuffer *rb)
-{
-    memset(rb->samples, 0, sizeof(rb->samples));
-    atomic_store_explicit(&rb->writeHead, 0u, memory_order_relaxed);
-    atomic_store_explicit(&rb->readHead,  0u, memory_order_relaxed);
-}
-
-static uint32_t SG_RingBuffer_Write(SGRingBuffer *rb,
-                                    const float  *src,
-                                    uint32_t      frameCount)
-{
-    uint32_t r    = atomic_load_explicit(&rb->readHead,  memory_order_acquire);
-    uint32_t w    = atomic_load_explicit(&rb->writeHead, memory_order_relaxed);
-    uint32_t used = w - r;
-    uint32_t free = (used < SG_RING_CAPACITY) ? (SG_RING_CAPACITY - used) : 0u;
-
-    if (frameCount > free) frameCount = free;
-    if (frameCount == 0u) return 0u;
-
-    for (uint32_t i = 0u; i < frameCount; i++) {
-        uint32_t slot = (w + i) & (SG_RING_CAPACITY - 1u);
-        rb->samples[slot * 2u]      = src[i * 2u];
-        rb->samples[slot * 2u + 1u] = src[i * 2u + 1u];
-    }
-    atomic_store_explicit(&rb->writeHead, w + frameCount, memory_order_release);
-    return frameCount;
-}
-
-static void SG_RingBuffer_Drain(SGRingBuffer *rb,
-                                float        *outLeft,
-                                float        *outRight,
-                                uint32_t      frameCount)
-{
-    uint32_t w     = atomic_load_explicit(&rb->writeHead, memory_order_acquire);
-    uint32_t r     = atomic_load_explicit(&rb->readHead,  memory_order_relaxed);
-    uint32_t avail = w - r;
-    uint32_t readFrames = (frameCount <= avail) ? frameCount : avail;
-
-    for (uint32_t i = 0u; i < readFrames; i++) {
-        uint32_t slot = (r + i) & (SG_RING_CAPACITY - 1u);
-        outLeft[i]  = rb->samples[slot * 2u];
-        outRight[i] = rb->samples[slot * 2u + 1u];
-    }
-    for (uint32_t i = readFrames; i < frameCount; i++) {
-        outLeft[i]  = 0.0f;
-        outRight[i] = 0.0f;
-    }
-    atomic_store_explicit(&rb->readHead, r + readFrames, memory_order_release);
-}
-
-// ---------------------------------------------------------------------------
 // Device state
 // ---------------------------------------------------------------------------
 
@@ -137,12 +77,9 @@ typedef struct {
     Boolean                 muteEnabled;
     AudioServerPlugInHostRef hostRef;
 
-    // Ring buffer — written by XPC callback, read by DoIOOperation
-    SGRingBuffer            ringBuffer;
-
-    // XPC — listener + current client connection (nil when disconnected)
-    xpc_connection_t        xpcListener;
-    xpc_connection_t        xpcClientConn;  // retained; NULL when no client
+    // Shared memory — app writes, driver reads in DoIOOperation
+    int                     shmFd;
+    SHMAudioBuffer         *shmBuf;
 } SGDriverState;
 
 static SGDriverState gState;
@@ -210,128 +147,40 @@ static AudioServerPlugInDriverInterface *gDriverInterfacePtr = &gDriverInterface
 static AudioServerPlugInDriverRef        gDriverRef           = &gDriverInterfacePtr;
 
 // ---------------------------------------------------------------------------
-// XPC helpers
+// SHM helpers
 // ---------------------------------------------------------------------------
 
-// Send setConsumerActive to the currently connected client (if any).
-// Must NOT be called while holding gState.mutex.
-static void SG_XPC_SendConsumerActive(Boolean active)
+// Open (or create) the POSIX shared memory segment and mmap it.
+// Called once from Initialize.  On failure: logs a fault and leaves shmBuf = NULL.
+static void SG_SHM_Open(void)
 {
-    pthread_mutex_lock(&gState.mutex);
-    xpc_connection_t conn = gState.xpcClientConn;
-    if (conn) xpc_retain(conn);
-    pthread_mutex_unlock(&gState.mutex);
-
-    if (!conn) return;
-
-    xpc_object_t msg = xpc_dictionary_create(NULL, NULL, 0);
-    xpc_dictionary_set_string(msg,  "type",   "setConsumerActive");
-    xpc_dictionary_set_bool(msg,    "active",  active ? true : false);
-    xpc_connection_send_message(conn, msg);
-    xpc_release(msg);
-    xpc_release(conn);
-
-    SGLog("setConsumerActive(%s) sent to app", active ? "true" : "false");
-}
-
-// Handle an incoming XPC message from the app client.
-static void SG_XPC_HandleMessage(xpc_object_t message)
-{
-    if (xpc_get_type(message) != XPC_TYPE_DICTIONARY) return;
-
-    const char *type = xpc_dictionary_get_string(message, "type");
-    if (!type) return;
-
-    if (strcmp(type, "writeSamples") == 0) {
-        size_t      dataLen    = 0;
-        const void *dataBytes  = xpc_dictionary_get_data(message, "data", &dataLen);
-        uint32_t    frameCount = (uint32_t)xpc_dictionary_get_uint64(message, "frameCount");
-
-        if (!dataBytes || frameCount == 0) return;
-
-        // Sanity: dataLen must be frameCount * 2 * sizeof(float)
-        size_t expectedBytes = (size_t)frameCount * 2u * sizeof(float);
-        if (dataLen < expectedBytes) {
-            SGLog("writeSamples: dataLen %zu < expected %zu — ignored", dataLen, expectedBytes);
-            return;
-        }
-
-        uint32_t written = SG_RingBuffer_Write(&gState.ringBuffer,
-                                               (const float *)dataBytes,
-                                               frameCount);
-        if (written < frameCount) {
-            SGLog("writeSamples: ring buffer full, dropped %u frames", frameCount - written);
-        }
+    int fd = shm_open(SG_SHM_NAME, O_RDWR | O_CREAT, 0666);
+    if (fd < 0) {
+        SGFault("SHM: shm_open(%s) failed: errno=%d", SG_SHM_NAME, errno);
+        return;
     }
-}
+    SGFault("SHM: shm_open(%s) succeeded, fd=%d", SG_SHM_NAME, fd);
 
-// Handle XPC events on a client connection (messages + errors).
-static void SG_XPC_ClientEventHandler(xpc_connection_t conn, xpc_object_t event)
-{
-    if (xpc_get_type(event) == XPC_TYPE_ERROR) {
-        if (event == XPC_ERROR_CONNECTION_INVALID ||
-            event == XPC_ERROR_TERMINATION_IMMINENT) {
-            SGLog("XPC client disconnected — draining ring buffer gracefully");
-            // Clear the stored client reference under the lock
-            pthread_mutex_lock(&gState.mutex);
-            if (gState.xpcClientConn == conn) {
-                xpc_release(gState.xpcClientConn);
-                gState.xpcClientConn = NULL;
-            }
-            pthread_mutex_unlock(&gState.mutex);
-            // Do NOT drain — let the ring buffer play out; DoIOOperation will
-            // emit silence once it empties (underrun handling).
-        }
-    } else {
-        SG_XPC_HandleMessage(event);
-    }
-}
-
-// Start the XPC listener. Called once from Initialize.
-static void SG_XPC_StartListener(void)
-{
-    // XPC_CONNECTION_MACH_SERVICE_LISTENER: this process is the server.
-    xpc_connection_t listener = xpc_connection_create_mach_service(
-        kMachServiceName,
-        dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0),
-        XPC_CONNECTION_MACH_SERVICE_LISTENER);
-
-    if (!listener) {
-        SGLog("XPC: failed to create mach service listener for %s", kMachServiceName);
+    size_t sz = sizeof(SHMAudioBuffer);
+    if (ftruncate(fd, (off_t)sz) < 0) {
+        SGFault("SHM: ftruncate(%zu) failed: errno=%d", sz, errno);
+        close(fd);
         return;
     }
 
-    xpc_connection_set_event_handler(listener, ^(xpc_object_t event) {
-        // New incoming connection from the app
-        if (xpc_get_type(event) == XPC_TYPE_CONNECTION) {
-            xpc_connection_t newConn = (xpc_connection_t)event;
-            SGLog("XPC: new client connected");
-
-            // Accept only one client — release any previous connection
-            pthread_mutex_lock(&gState.mutex);
-            if (gState.xpcClientConn) {
-                xpc_release(gState.xpcClientConn);
-            }
-            gState.xpcClientConn = xpc_retain(newConn);
-            pthread_mutex_unlock(&gState.mutex);
-
-            xpc_connection_set_event_handler(newConn, ^(xpc_object_t clientEvent) {
-                SG_XPC_ClientEventHandler(newConn, clientEvent);
-            });
-            xpc_connection_resume(newConn);
-        } else if (xpc_get_type(event) == XPC_TYPE_ERROR) {
-            SGLog("XPC listener error: %s",
-                  xpc_dictionary_get_string(event, XPC_ERROR_KEY_DESCRIPTION));
-        }
-    });
-
-    xpc_connection_resume(listener);
+    void *mapped = mmap(NULL, sz, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+    if (mapped == MAP_FAILED) {
+        SGFault("SHM: mmap(%zu) failed: errno=%d", sz, errno);
+        close(fd);
+        return;
+    }
 
     pthread_mutex_lock(&gState.mutex);
-    gState.xpcListener = listener;
+    gState.shmFd  = fd;
+    gState.shmBuf = (SHMAudioBuffer *)mapped;
     pthread_mutex_unlock(&gState.mutex);
 
-    SGLog("XPC: listener started for %s", kMachServiceName);
+    SGFault("SHM: mapped %zu bytes at %p", sz, mapped);
 }
 
 // ---------------------------------------------------------------------------
@@ -346,9 +195,8 @@ void *AudioServerPlugInDriverCreate(CFAllocatorRef inAllocator)
     gState.frameCount    = 0;
     gState.muteEnabled   = false;
     gState.hostRef       = NULL;
-    gState.xpcListener   = NULL;
-    gState.xpcClientConn = NULL;
-    SG_RingBuffer_Init(&gState.ringBuffer);
+    gState.shmFd         = -1;
+    gState.shmBuf        = NULL;
     SGLog("AudioServerPlugInDriverCreate called — driver ref %p", (void*)gDriverRef);
     return gDriverRef;
 }
@@ -388,13 +236,13 @@ static OSStatus SGDriver_Initialize(AudioServerPlugInDriverRef inDriver,
                                     AudioServerPlugInHostRef inHost)
 {
     (void)inDriver;
-    SGLog("Initialize called — host %p", (void*)inHost);
+    SGFault("Initialize called — host %p", (void*)inHost);
     pthread_mutex_lock(&gState.mutex);
     gState.hostRef = inHost;
     pthread_mutex_unlock(&gState.mutex);
 
-    // Start XPC listener before notifying coreaudiod of the device.
-    SG_XPC_StartListener();
+    // Open shared memory before notifying coreaudiod of the device.
+    SG_SHM_Open();
 
     // Notify coreaudiod asynchronously (must not call PropertiesChanged from
     // Initialize directly — the proxy is not fully set up yet).
@@ -941,10 +789,9 @@ static OSStatus SGDriver_StartIO(AudioServerPlugInDriverRef inDriver,
     gState.frameCount    = 0;
     pthread_mutex_unlock(&gState.mutex);
 
-    // AC5: Notify the app that a consumer has started reading.
-    // SG_XPC_SendConsumerActive must be called WITHOUT holding the mutex.
-    SG_XPC_SendConsumerActive(true);
-    SGLog("StartIO: consumer active");
+    // Notify the app that a consumer has started reading (ADR 0012).
+    notify_post(SG_NOTIFY_ACTIVE);
+    SGLog("StartIO: consumer active — notified %s", SG_NOTIFY_ACTIVE);
 
     return kAudioHardwareNoError;
 }
@@ -958,9 +805,9 @@ static OSStatus SGDriver_StopIO(AudioServerPlugInDriverRef inDriver,
     gState.ioStatus = kAudioHardwareIllegalOperationError;
     pthread_mutex_unlock(&gState.mutex);
 
-    // AC6: Notify the app that the consumer stopped.
-    SG_XPC_SendConsumerActive(false);
-    SGLog("StopIO: consumer inactive");
+    // Notify the app that the consumer stopped (ADR 0012).
+    notify_post(SG_NOTIFY_INACTIVE);
+    SGLog("StopIO: consumer inactive — notified %s", SG_NOTIFY_INACTIVE);
 
     return kAudioHardwareNoError;
 }
@@ -1051,20 +898,35 @@ static OSStatus SGDriver_DoIOOperation(AudioServerPlugInDriverRef inDriver,
 
     if (ioMainBuffer != NULL) {
         if (!gScratchReady) {
-            // First channel call this cycle: drain interleaved from ring buffer.
-            // Clamp to scratch buffer capacity if inIOBufferFrameSize is unusually large.
+            // First channel call this cycle: drain interleaved from SHMAudioBuffer.
+            SHMAudioBuffer *buf = gState.shmBuf;
             uint32_t scratchCapacity = (uint32_t)(sizeof(gScratchRight) / sizeof(float));
             uint32_t drainFrames = (inIOBufferFrameSize <= scratchCapacity)
                                    ? inIOBufferFrameSize : scratchCapacity;
-            SG_RingBuffer_Drain(&gState.ringBuffer,
-                                (float *)ioMainBuffer,   // left channel → caller's buffer
-                                gScratchRight,           // right channel → scratch
-                                drainFrames);
-            // Zero-fill any frames beyond the scratch capacity
             float *lBuf = (float *)ioMainBuffer;
-            for (uint32_t i = drainFrames; i < inIOBufferFrameSize; i++) {
-                lBuf[i]          = 0.0f;
-                gScratchRight[i] = 0.0f;
+
+            if (buf != NULL) {
+                uint64_t r     = atomic_load_explicit(&buf->readPos,  memory_order_relaxed);
+                uint64_t w     = atomic_load_explicit(&buf->writePos, memory_order_acquire);
+                uint64_t avail = (w > r) ? (w - r) : 0u;
+                uint32_t readFrames = (drainFrames <= (uint32_t)avail) ? drainFrames : (uint32_t)avail;
+
+                for (uint32_t i = 0u; i < readFrames; i++) {
+                    uint64_t slot = (r + i) % SG_SHM_CAPACITY;
+                    lBuf[i]          = buf->samples[slot * 2u];
+                    gScratchRight[i] = buf->samples[slot * 2u + 1u];
+                }
+                for (uint32_t i = readFrames; i < inIOBufferFrameSize; i++) {
+                    lBuf[i]          = 0.0f;
+                    gScratchRight[i] = 0.0f;
+                }
+                atomic_store_explicit(&buf->readPos, r + readFrames, memory_order_release);
+            } else {
+                // SHM not yet mapped — emit silence.
+                for (uint32_t i = 0u; i < inIOBufferFrameSize; i++) {
+                    lBuf[i]          = 0.0f;
+                    gScratchRight[i] = 0.0f;
+                }
             }
             gScratchReady = true;
         } else {

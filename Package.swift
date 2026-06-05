@@ -14,6 +14,7 @@ let package = Package(
     targets: [
         .target(
             name: "AudioEngine",
+            dependencies: ["DriverIPC"],
             path: "Sources/AudioEngine",
             linkerSettings: [
                 .linkedFramework("CoreAudio"),
