@@ -5,6 +5,16 @@ Newest entries on top.
 
 ---
 
+## 2026-06-05 13:10 -- Bug fixed: infrastructure-007 — StimmgabelDriver QueryInterface
+
+**Type:** Work / Bug fix
+**Task:** infrastructure-007 — StimmgabelDriver QueryInterface memcmp compares stack pointer instead of UUID bytes
+**Summary:** `memcmp(&inUUID, …)` replaced with `CFUUIDBytes uuidBytes = CFUUIDGetUUIDBytes(inUUID); memcmp(&uuidBytes, …)`. QueryInterface now returns S_OK for the correct interface UUID; coreaudiod can acquire the driver and expose the Stimmgabel device. Q1 empirical answer updated to Yes. Q3: single sudo prompt confirmed acceptable.
+**Commit:** (pending)
+**Files changed:** 3
+
+---
+
 ## 2026-06-05 13:00 -- Work session ended
 
 **Type:** Work / Session end

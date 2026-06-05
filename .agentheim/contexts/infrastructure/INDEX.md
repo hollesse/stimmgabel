@@ -13,7 +13,7 @@ research touching this BC, and concept synthesis pages.
 - **Backlog:** 0
 - **Todo:** 0
 - **Doing:** 0
-- **Done:** 6
+- **Done:** 7
 <!-- task-counts:end -->
 
 ### Todo
@@ -26,6 +26,7 @@ research touching this BC, and concept synthesis pages.
 
 ### Done (most recent first; older entries kept for prior-art search)
 <!-- done-list:start -->
+- **infrastructure-007** — Bug — StimmgabelDriver QueryInterface memcmp compares stack pointer instead of UUID bytes — `done/infrastructure-007-driver-queryinterface-bug.md`
 - **infrastructure-006** — Walking skeleton — minimal end-to-end audio path — `done/infrastructure-006-walking-skeleton.md`
 - **infrastructure-005** — Decision — testing strategy — `done/infrastructure-005-testing-strategy.md`
 - **infrastructure-004** — Decision — build & release tooling — `done/infrastructure-004-build-and-release-tooling.md`

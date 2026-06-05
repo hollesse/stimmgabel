@@ -43,15 +43,14 @@ Not applicable — this BC holds tech decisions and shipping assets, not a domai
 
 ### Walking skeleton (infrastructure-006) empirical answers
 
-**Q1 — Ad-hoc-signed Audio Server Plugin loading (macOS 14.4+):**
-Manual verification pending. The walking skeleton builds and the `.driver` bundle passes `codesign --verify --verbose` (ad-hoc signature: valid on disk, satisfies its Designated Requirement). Whether `coreaudiod` actually loads the ad-hoc-signed plug-in and exposes the device requires running `script/install-driver.sh` on a real Mac and checking Audio MIDI Setup. This is the next verification step.
-*Expected answer: Yes — Background Music, BlackHole, and similar tools install ad-hoc-signed plugins successfully.*
+**Q1 — Ad-hoc-signed Audio Server Plugin loading (macOS 26.3):**
+**Yes — ad-hoc signing is sufficient**, once the driver implementation is correct. Initial test showed the device not appearing; root cause was a `QueryInterface` bug (`memcmp(&inUUID, …)` compared stack memory instead of UUID bytes — fixed in infrastructure-007). After the fix, `codesign --verify --verbose` passes and the driver loads. Confirmed on macOS 26.3 (Darwin 25.3.0).
 
 **Q2 — App Sandbox compatibility with `AudioHardwareCreateProcessTap`:**
 Not exercised in this spike. The walking skeleton app is **unsandboxed** (no `com.apple.security.app-sandbox` entitlement). The sandbox question applies only when the real Process Tap (ADR 0004) is wired in — that is a follow-up empirical task.
 
 **Q3 — Install UX acceptability (single `sudo` prompt):**
-Manual verification pending. The `script/install-driver.sh` is written to prompt exactly once. Subjective acceptability is for the author to judge after running the install on their Mac.
+**Yes — acceptable for v1.** Single `sudo` prompt confirmed sufficient. No `.pkg` installer needed for the author workflow.
 
 ### Other open questions
-- Whether the audio virtual device loads cleanly on macOS 26.x (Tahoe) given the project was built against the macOS 26.2 SDK but targets macOS 14.0+. The deployment target ensures binary compatibility; the SDK question is about runtime plugin loading behaviour on newer OS versions.
+- Sandbox compatibility of `AudioHardwareCreateProcessTap` — deferred to the Process Tap feature task (see Q2 above).

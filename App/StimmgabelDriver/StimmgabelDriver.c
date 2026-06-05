@@ -145,7 +145,8 @@ static HRESULT SGDriver_QueryInterface(void *inDriver, REFIID inUUID, LPVOID *ou
         0xEE, 0xA5, 0x77, 0x3D, 0xCC, 0x43, 0x49, 0xF1,
         0x8E, 0x00, 0x8F, 0x96, 0xE7, 0xD2, 0x3B, 0x17
     };
-    if (memcmp(&inUUID, kInterfaceBytes, 16) == 0) {
+    CFUUIDBytes uuidBytes = CFUUIDGetUUIDBytes(inUUID);
+    if (memcmp(&uuidBytes, kInterfaceBytes, sizeof(uuidBytes)) == 0) {
         *outInterface = gDriverRef;
         return S_OK;
     }
