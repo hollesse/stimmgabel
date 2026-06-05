@@ -43,6 +43,6 @@ Tactical modelling pending. Likely a single small aggregate:
 - **No styleguide gate** — Stimmgabel has no `design-system` BC (see `context-map.md` for rationale). Frontend tasks in this BC do *not* depend on a styleguide task. If a `design-system` BC is later added, update this note.
 
 ## Open questions
-- Mute-state persistence across app restart / reboot — assumed yes; storage mechanism TBD by architect.
+- Mute-state persistence across app restart / reboot — **resolved**: `UserDefaults.standard` behind a `MutePreferences` value type (ADR 0007).
 - First-launch onboarding — what minimum does the user see / approve? At least: microphone permission, system-audio capture permission (whatever the chosen mechanism requires), optional "Add to login items?". Out of scope for vision, in scope for first decision/feature tasks.
 - How icon states render — emoji? SF Symbol? Custom asset? Architect / design choice, deferred until first UI task.

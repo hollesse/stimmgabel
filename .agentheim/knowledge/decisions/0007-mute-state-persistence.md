@@ -1,37 +1,4 @@
 ---
-id: menubar-ui-001
-title: Decision — mute-state persistence
-status: todo
-type: decision
-context: menubar-ui
-created: 2026-06-05
-completed:
-commit:
-depends_on: []
-blocks: []
-tags: [foundation, persistence, userdefaults]
-related_adrs: []
-related_research: []
-prior_art: []
----
-
-## Why
-The vision lists mute persistence as an assumed-yes open question. Resolving it BC-locally now (only `menubar-ui` cares about user-visible state surviving restarts) keeps the decision in the right place and gives the worker a clear contract.
-
-## What
-Commit ADR 0007 capturing the architect's recommendation: persist the two mute booleans in `UserDefaults.standard` behind a thin `MutePreferences` value type. BC-local to `menubar-ui`.
-
-## Acceptance criteria
-- [ ] `knowledge/decisions/0007-mute-state-persistence.md` exists with `scope: menubar-ui`, `status: accepted`.
-- [ ] `contexts/menubar-ui/INDEX.md` updated under `<!-- adr-local:start -->`.
-- [ ] No code changes.
-
-## Notes
-
-Architect draft (paste into the ADR with id `0007`, status `accepted`, date `2026-06-05`):
-
-```markdown
----
 id: 0007
 title: Persist per-side mute state in UserDefaults (BC-local to menubar-ui)
 scope: menubar-ui
@@ -89,4 +56,3 @@ The audio-engine BC is not affected by this decision. On app launch, `menubar-ui
 - `menubar-ui/README.md` — Open questions: "Mute-state persistence across app restart / reboot — assumed yes; storage mechanism TBD by architect"
 - ADR 0001 — single-user, local-only
 - ADR 0002 — bounded contexts (BC-local infrastructure stays inside the originating BC)
-```

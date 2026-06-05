@@ -12,8 +12,8 @@ research touching this BC, and concept synthesis pages.
 <!-- task-counts:start -->
 - **Backlog:** 0
 - **Todo:** 0
-- **Doing:** 1
-- **Done:** 0
+- **Doing:** 0
+- **Done:** 1
 <!-- task-counts:end -->
 
 ### Todo
@@ -22,11 +22,11 @@ research touching this BC, and concept synthesis pages.
 
 ### Doing
 <!-- doing-list:start -->
-- **menubar-ui-001** — Decision — mute-state persistence — `doing/menubar-ui-001-mute-state-persistence.md`
 <!-- doing-list:end -->
 
 ### Done (most recent first; older entries kept for prior-art search)
 <!-- done-list:start -->
+- **menubar-ui-001** — Decision — mute-state persistence — `done/menubar-ui-001-mute-state-persistence.md`
 <!-- done-list:end -->
 
 ### Backlog
@@ -36,6 +36,7 @@ research touching this BC, and concept synthesis pages.
 ## ADRs scoped to this BC
 
 <!-- adr-local:start -->
+- **0007** — Persist per-side mute state in UserDefaults (BC-local to menubar-ui) — 2026-06-05 — `knowledge/decisions/0007-mute-state-persistence.md`
 <!-- adr-local:end -->
 
 ## Research touching this BC

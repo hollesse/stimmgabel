@@ -5,13 +5,26 @@ Newest entries on top.
 
 ---
 
+## 2026-06-05 12:04 -- Task verified and completed: menubar-ui-001 - Decision — mute-state persistence
+
+**Type:** Work / Task completion
+**Task:** menubar-ui-001 - Decision — mute-state persistence
+**Summary:** ADR 0007 written: UserDefaults.standard behind a MutePreferences value type persists per-side mute booleans. BC README open question resolved. BC-local to menubar-ui.
+**Verification:** PASS (iteration 1)
+**Commit:** (pending)
+**Files changed:** 2
+**Tests added:** 0
+**ADRs written:** 0007-mute-state-persistence.md
+
+---
+
 ## 2026-06-05 12:02 -- Task completed (verification skipped): infrastructure-001 - Decision — language & UI framework
 
 **Type:** Work / Task completion
 **Task:** infrastructure-001 - Decision — language & UI framework
 **Summary:** ADR 0003 written: Swift 5.10+ with SwiftUI MenuBarExtra (macOS 13+) as the default UI path, AppKit NSStatusItem+NSMenu as a declared fallback, and a two-target Swift Package layout (AudioEngine UI-free, MenubarUI depending on it) that compiler-enforces the BC boundary.
 **Verification:** SKIPPED — decision-only task (type: decision, FILES_CHANGED == 1, single ADR file)
-**Commit:** (pending)
+**Commit:** 3f84c47
 **Files changed:** 1
 **ADRs written:** 0003-language-and-ui-framework.md
 

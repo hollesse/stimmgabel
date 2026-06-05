@@ -6,7 +6,7 @@ type: decision
 context: infrastructure
 created: 2026-06-05
 completed: 2026-06-05
-commit:
+commit: 3f84c47
 depends_on: []
 blocks: []
 tags: [foundation, language, ui-framework]
