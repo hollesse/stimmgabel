@@ -1,16 +1,16 @@
 ---
 id: infrastructure-004
 title: Decision — build & release tooling
-status: todo
+status: done
 type: decision
 context: infrastructure
 created: 2026-06-05
-completed:
+completed: 2026-06-05
 commit:
 depends_on: [infrastructure-001]
 blocks: []
 tags: [foundation, build, release, spm, xcode]
-related_adrs: []
+related_adrs: [0008]
 related_research: [macos-audio-platform-2026-06-05]
 prior_art: []
 ---
@@ -32,6 +32,10 @@ Commit ADR 0008 capturing: **`Package.swift` at the repo root defining `AudioEng
 - [ ] The chosen layout makes ADR 0002's BC boundary compiler-enforced.
 - [ ] `knowledge/index.md` updated under `<!-- adr-global:start -->`.
 - [ ] No code changes (the walking-skeleton spike, `infrastructure-006`, materialises the actual project).
+
+## Outcome
+
+ADR 0008 written at `.agentheim/knowledge/decisions/0008-build-and-release-tooling.md`. Captures the SPM + thin Xcode project layout (scope: global, status: accepted). The two-module SPM split (`AudioEngine`, `MenubarUI`) enforces the ADR 0002 BC boundary at the compiler level. v1 uses ad-hoc signing for both `.app` and `.driver`; v2 path reserved as configuration-only change.
 
 ## Notes
 

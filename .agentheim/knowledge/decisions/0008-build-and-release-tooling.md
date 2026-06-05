@@ -1,44 +1,4 @@
 ---
-id: infrastructure-004
-title: Decision — build & release tooling
-status: todo
-type: decision
-context: infrastructure
-created: 2026-06-05
-completed:
-commit:
-depends_on: [infrastructure-001]
-blocks: []
-tags: [foundation, build, release, spm, xcode]
-related_adrs: []
-related_research: [macos-audio-platform-2026-06-05]
-prior_art: []
----
-
-## Why
-The build approach has to produce a runnable `.app` plus an Audio Server Plugin (`.driver`), and grow into a fully-signed/notarised v2 distribution without a tooling rewrite. It also has to enforce the BC module boundary from ADR 0002 at the compiler level.
-
-This task depends on `infrastructure-001` (language & UI framework) because the SPM layout follows the language decision.
-
-## What
-Commit ADR 0008 capturing: **`Package.swift` at the repo root defining `AudioEngine` + `MenubarUI` SPM products, plus an `App/Stimmgabel.xcodeproj`** containing the app target and the Audio Server Plugin target. CLI entry point: `xcodebuild`.
-
-**v1 produces ad-hoc-signed artifacts** (both the `.app` and the `Stimmgabel.driver` bundle) — the build runs `codesign --sign -` so the plug-in is loadable by `coreaudiod` on current macOS. v2's increment is configuration only: swap the ad-hoc identity for a Developer ID, add a `notarytool submit` step. No tooling change required.
-
-**Research findings (`macos-audio-platform-2026-06-05`) changed one thing in the architect's original draft:** the original "v1 is unsigned, period" plan does not work — Audio Server Plugins require at minimum an ad-hoc signature on current macOS. Ad-hoc signing has been folded into v1's build. Full Developer ID + notarisation stays v2's concern.
-
-## Acceptance criteria
-- [ ] `knowledge/decisions/0008-build-and-release-tooling.md` exists with `scope: global`, `status: accepted`.
-- [ ] The chosen layout makes ADR 0002's BC boundary compiler-enforced.
-- [ ] `knowledge/index.md` updated under `<!-- adr-global:start -->`.
-- [ ] No code changes (the walking-skeleton spike, `infrastructure-006`, materialises the actual project).
-
-## Notes
-
-Architect draft, **amended on 2026-06-05 to reflect research findings** (ad-hoc signing is required in v1, not deferred to v2). Paste into the ADR with id `0008`, status `accepted`, date `2026-06-05`:
-
-```markdown
----
 id: 0008
 title: Build with SPM modules + a minimal Xcode app target driven by xcodebuild; ad-hoc sign in v1, Developer-ID + notarise in v2
 scope: global
@@ -110,4 +70,3 @@ Options:
 - ADR 0002 — bounded contexts (the SPM split mirrors the BC split)
 - ADR 0005 — Audio Server Plugin install (`script/install-driver.sh` depends on this build's `dist/` output)
 - Apple Developer Forums thread/676781 — Quinn (DTS) on dev vs distribution signing for Audio Server Plugins
-```

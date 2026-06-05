@@ -5,6 +5,18 @@ Newest entries on top.
 
 ---
 
+## 2026-06-05 12:32 -- Task completed (verification skipped): infrastructure-004 - Decision — build & release tooling
+
+**Type:** Work / Task completion
+**Task:** infrastructure-004 - Decision — build & release tooling
+**Summary:** ADR 0008 written: Package.swift defines AudioEngine + MenubarUI SPM products; App/Stimmgabel.xcodeproj has app + StimmgabelDriver targets; xcodebuild CLI. v1 ad-hoc-signs both .app and .driver (CODE_SIGN_IDENTITY=-); v2 is a configuration swap to Developer ID + notarytool. Scope: global.
+**Verification:** SKIPPED — decision-only task (type: decision, FILES_CHANGED == 1, single ADR file)
+**Commit:** (pending)
+**Files changed:** 1
+**ADRs written:** 0008-build-and-release-tooling.md
+
+---
+
 ## 2026-06-05 12:28 -- Batch started: [infrastructure-004]
 
 **Type:** Work / Batch start
