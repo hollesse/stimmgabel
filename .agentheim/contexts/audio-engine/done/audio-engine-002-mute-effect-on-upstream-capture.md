@@ -1,16 +1,16 @@
 ---
 id: audio-engine-002
 title: Decision — mute effect on upstream capture (v1: zero in mix; v1 architecture preserves v2 suspend-on-mute)
-status: todo
+status: done
 type: decision
 context: audio-engine
 created: 2026-06-05
-completed:
+completed: 2026-06-05
 commit:
 depends_on: [audio-engine-001]
 blocks: []
 tags: [foundation, audio, mute, privacy, mic-indicator]
-related_adrs: []
+related_adrs: [0010]
 related_research: []
 prior_art: []
 ---
@@ -28,6 +28,10 @@ The ADR also names the v2 cost (≈ half a day, contingent on v1 honouring the c
 - [ ] `contexts/audio-engine/INDEX.md` updated under `<!-- adr-local:start -->`.
 - [ ] `contexts/audio-engine/README.md` open question on mute & upstream-capture suspension updated (or removed) to point at ADR 0010.
 - [ ] No code changes.
+
+## Outcome
+
+ADR 0010 written at `.agentheim/knowledge/decisions/0010-mute-effect-on-upstream-capture.md` (scope: audio-engine, status: accepted). Documents the v1 decision to zero muted sides in the mix, the six architectural constraints v1 must honour so that v2 "suspend-on-mute" remains a half-day change, the v2 effort estimate, and the "revisit when" triggers. The BC README open question (line 56) was already resolved pointing at ADR 0010.
 
 ## Notes
 

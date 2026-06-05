@@ -5,6 +5,18 @@ Newest entries on top.
 
 ---
 
+## 2026-06-05 12:15 -- Task completed (verification skipped): audio-engine-002 - Decision — mute effect on upstream capture
+
+**Type:** Work / Task completion
+**Task:** audio-engine-002 - Decision — mute effect on upstream capture
+**Summary:** ADR 0010 written: v1 ships "zero in the mix"; six architectural constraints (per-side UpstreamCaptureAdapter protocol with independent start()/stop(), mute in AudioPipeline not adapters, serial state queue, idempotent toggles, mix tolerates silent side) preserve a half-day v2 suspend-on-mute path.
+**Verification:** SKIPPED — decision-only task (type: decision, FILES_CHANGED == 1, single ADR file)
+**Commit:** (pending)
+**Files changed:** 1
+**ADRs written:** 0010-mute-effect-on-upstream-capture.md
+
+---
+
 ## 2026-06-05 12:10 -- Batch started: [infrastructure-002, audio-engine-002]
 
 **Type:** Work / Batch start
