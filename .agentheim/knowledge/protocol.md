@@ -5,6 +5,18 @@ Newest entries on top.
 
 ---
 
+## 2026-06-05 13:00 -- Work session ended
+
+**Type:** Work / Session end
+**Completed:** 9 (first-try PASS: 1 [infrastructure-006], skipped: 8 [all ADR decision tasks])
+**Bounced:** 0
+**Failed:** 0
+**Escalated after verification:** 0
+**Verification failures recovered:** 1 (infrastructure-002 iteration 1 — worker modified INDEX.md; re-dispatched, iteration 2 passed skip gate)
+**Commits:** 13 (9 task commits + 4 housekeeping/chore commits)
+
+---
+
 ## 2026-06-05 12:55 -- Task verified and completed: infrastructure-006 - Walking skeleton — minimal end-to-end audio path
 
 **Type:** Work / Task completion

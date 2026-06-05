@@ -6,7 +6,7 @@ type: spike
 context: infrastructure
 created: 2026-06-05
 completed: 2026-06-05
-commit:
+commit: f8d10bb
 depends_on:
   - infrastructure-001
   - infrastructure-002
