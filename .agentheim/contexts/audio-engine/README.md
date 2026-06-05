@@ -64,6 +64,6 @@ Tactical modelling has not happened yet; these are placeholders for future `mode
 | `UpstreamCaptureAdapter` (protocol) | done | Seam for Tier-1 testing (ADR 0009) |
 | `SystemAudioAdapter` | done | Process Tap, rebinds on default-output change (ADR 0004) |
 | `MicAdapter` | done | HAL IOProc on default input device, rebinds on default-input change, TCC prompt, AudioConverter for format reconciliation (ADR 0006) |
-| `AudioPipeline` | done | Consumer-lifecycle, mute-flag management (ADR 0010) |
-| Mix stage (actual sample combining) | not started | audio-engine-005 |
+| `AudioPipeline` | done | Consumer-lifecycle, mute-flag management, `mix(frameCount:)` entry point (ADR 0010) |
+| `Mixer` | done | Per-side staging buffers, sample-wise sum, per-side mute as zero, gain slots for v2 (audio-engine-005) |
 | Virtual-mic publication | not started | infrastructure BC |

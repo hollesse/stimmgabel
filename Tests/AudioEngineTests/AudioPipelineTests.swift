@@ -312,4 +312,127 @@ final class AudioPipelineTests: XCTestCase {
 
         XCTAssertEqual(receivedBuffers.count, 1)
     }
+
+    // MARK: - Mix stage (audio-engine-005, ADR 0010)
+
+    // Helper: make a non-interleaved float32 stereo buffer filled with a constant value.
+    private func makeStereoBuffer(frameCount: Int, value: Float) -> AVAudioPCMBuffer {
+        let format = AVAudioFormat(
+            commonFormat: .pcmFormatFloat32,
+            sampleRate: 48_000,
+            channels: 2,
+            interleaved: false
+        )!
+        let buf = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: AVAudioFrameCount(frameCount))!
+        buf.frameLength = AVAudioFrameCount(frameCount)
+        guard let data = buf.floatChannelData else { return buf }
+        for ch in 0..<2 {
+            for i in 0..<frameCount {
+                data[ch][i] = value
+            }
+        }
+        return buf
+    }
+
+    /// AC1: With both sides delivering known buffers, mix output equals their sample-wise sum.
+    func test_mix_bothSides_outputIsSum() {
+        let mic = FakeUpstreamCaptureAdapter()
+        let sysAudio = FakeUpstreamCaptureAdapter()
+        let pipeline = AudioPipeline(micAdapter: mic, systemAudioAdapter: sysAudio)
+        pipeline.consumerAttached()
+
+        let frameCount = 512
+        mic.emitBuffer(makeStereoBuffer(frameCount: frameCount, value: 0.3))
+        sysAudio.emitBuffer(makeStereoBuffer(frameCount: frameCount, value: 0.4))
+
+        let mixed = pipeline.mix(frameCount: frameCount)
+
+        // Expect 2 channels * 512 frames = 1024 interleaved samples (L,R,L,R,...) or
+        // non-interleaved: 512 per channel, 1024 total. Either way sum = 0.3 + 0.4 = 0.7.
+        XCTAssertFalse(mixed.isEmpty, "mix() must return samples")
+        for sample in mixed {
+            XCTAssertEqual(sample, 0.7, accuracy: 1e-5)
+        }
+    }
+
+    /// AC2: With mic muted, output equals system-audio buffer only.
+    func test_mix_micMuted_outputIsSystemAudioOnly() {
+        let mic = FakeUpstreamCaptureAdapter()
+        let sysAudio = FakeUpstreamCaptureAdapter()
+        let pipeline = AudioPipeline(micAdapter: mic, systemAudioAdapter: sysAudio)
+        pipeline.consumerAttached()
+        pipeline.setSideMute(mic: true)
+
+        let frameCount = 256
+        mic.emitBuffer(makeStereoBuffer(frameCount: frameCount, value: 0.9))
+        sysAudio.emitBuffer(makeStereoBuffer(frameCount: frameCount, value: 0.5))
+
+        let mixed = pipeline.mix(frameCount: frameCount)
+
+        XCTAssertFalse(mixed.isEmpty)
+        for sample in mixed {
+            XCTAssertEqual(sample, 0.5, accuracy: 1e-5)
+        }
+    }
+
+    /// AC3: With system-audio muted, output equals mic buffer only.
+    func test_mix_systemAudioMuted_outputIsMicOnly() {
+        let mic = FakeUpstreamCaptureAdapter()
+        let sysAudio = FakeUpstreamCaptureAdapter()
+        let pipeline = AudioPipeline(micAdapter: mic, systemAudioAdapter: sysAudio)
+        pipeline.consumerAttached()
+        pipeline.setSideMute(systemAudio: true)
+
+        let frameCount = 256
+        mic.emitBuffer(makeStereoBuffer(frameCount: frameCount, value: 0.6))
+        sysAudio.emitBuffer(makeStereoBuffer(frameCount: frameCount, value: 0.2))
+
+        let mixed = pipeline.mix(frameCount: frameCount)
+
+        XCTAssertFalse(mixed.isEmpty)
+        for sample in mixed {
+            XCTAssertEqual(sample, 0.6, accuracy: 1e-5)
+        }
+    }
+
+    /// AC4: With both sides muted, output is all-zeros.
+    func test_mix_bothMuted_outputIsAllZeros() {
+        let mic = FakeUpstreamCaptureAdapter()
+        let sysAudio = FakeUpstreamCaptureAdapter()
+        let pipeline = AudioPipeline(micAdapter: mic, systemAudioAdapter: sysAudio)
+        pipeline.consumerAttached()
+        pipeline.setSideMute(mic: true, systemAudio: true)
+
+        let frameCount = 128
+        mic.emitBuffer(makeStereoBuffer(frameCount: frameCount, value: 1.0))
+        sysAudio.emitBuffer(makeStereoBuffer(frameCount: frameCount, value: 1.0))
+
+        let mixed = pipeline.mix(frameCount: frameCount)
+
+        XCTAssertFalse(mixed.isEmpty)
+        for sample in mixed {
+            XCTAssertEqual(sample, 0.0, accuracy: 1e-5)
+        }
+    }
+
+    /// AC5: mix() returns silence (zeros) for a side that has not yet delivered a buffer.
+    func test_mix_oneSideAbsent_treatsAsSilence() {
+        let mic = FakeUpstreamCaptureAdapter()
+        let sysAudio = FakeUpstreamCaptureAdapter()
+        let pipeline = AudioPipeline(micAdapter: mic, systemAudioAdapter: sysAudio)
+        pipeline.consumerAttached()
+
+        let frameCount = 64
+        // Only mic side delivers; system audio has not produced a buffer yet.
+        mic.emitBuffer(makeStereoBuffer(frameCount: frameCount, value: 0.5))
+        // sysAudio emits nothing
+
+        let mixed = pipeline.mix(frameCount: frameCount)
+
+        XCTAssertFalse(mixed.isEmpty)
+        for sample in mixed {
+            // mic(0.5) + sysaudio(silent=0.0) = 0.5
+            XCTAssertEqual(sample, 0.5, accuracy: 1e-5)
+        }
+    }
 }
