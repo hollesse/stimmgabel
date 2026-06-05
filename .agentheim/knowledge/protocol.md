@@ -5,13 +5,24 @@ Newest entries on top.
 
 ---
 
+## 2026-06-05 17:25 -- Work session ended
+
+**Type:** Work / Session end
+**Completed:** 3 (first-try PASS: 2 [infrastructure-008, audio-engine-004], re-dispatched: 1 [audio-engine-003 — verifier false positive from parallel execution])
+**Bounced:** 0
+**Failed:** 0
+**Escalated after verification:** 0
+**Commits:** 3 (bb3e71a infrastructure-008, 1394b39 audio-engine-003, 29c1548 audio-engine-004)
+
+---
+
 ## 2026-06-05 17:20 -- Task verified and completed: audio-engine-004 - Mic capture
 
 **Type:** Work / Task completion
 **Task:** audio-engine-004 - Mic capture — HAL IOProc on default input device, rebind on default-input change
 **Summary:** MicAdapter implemented as CoreAudio HAL IOProc on default input device with AVCaptureDevice TCC prompt, AudioConverter format reconciliation to 48kHz/float32/stereo, and transparent rebind on kAudioHardwarePropertyDefaultInputDevice change via serial dispatch queue; 4 new Tier-1 tests.
 **Verification:** PASS (iteration 1)
-**Commit:** (pending)
+**Commit:** 29c1548
 **Files changed:** 3
 **Tests added:** 4
 **ADRs written:** none
