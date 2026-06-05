@@ -13,7 +13,7 @@ research touching this BC, and concept synthesis pages.
 - **Backlog:** 0
 - **Todo:** 0
 - **Doing:** 0
-- **Done:** 7
+- **Done:** 8
 <!-- task-counts:end -->
 
 ### Todo
@@ -26,6 +26,7 @@ research touching this BC, and concept synthesis pages.
 
 ### Done (most recent first; older entries kept for prior-art search)
 <!-- done-list:start -->
+- **infrastructure-008** — Driver IPC — Mach service, ring buffer, XPC server in Stimmgabel.driver — `done/infrastructure-008-driver-ipc-ring-buffer.md`
 - **infrastructure-007** — Bug — StimmgabelDriver QueryInterface memcmp compares stack pointer instead of UUID bytes — `done/infrastructure-007-driver-queryinterface-bug.md`
 - **infrastructure-006** — Walking skeleton — minimal end-to-end audio path — `done/infrastructure-006-walking-skeleton.md`
 - **infrastructure-005** — Decision — testing strategy — `done/infrastructure-005-testing-strategy.md`
@@ -42,6 +43,7 @@ research touching this BC, and concept synthesis pages.
 ## ADRs scoped to this BC
 
 <!-- adr-local:start -->
+- **0011** — Driver IPC ring buffer — lock-free SP/SR interleaved float32, inlined in driver — 2026-06-05 — `knowledge/decisions/0011-driver-ipc-ring-buffer-design.md`
 <!-- adr-local:end -->
 
 ## Research touching this BC

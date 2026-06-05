@@ -5,6 +5,50 @@ Newest entries on top.
 
 ---
 
+## 2026-06-05 16:55 -- Task verified and completed: infrastructure-008 - Driver IPC
+
+**Type:** Work / Task completion
+**Task:** infrastructure-008 - Driver IPC — Mach service, ring buffer, XPC server in Stimmgabel.driver
+**Summary:** Stimmgabel.driver exposes XPC server on com.innoq.stimmgabel.driver (Info.plist declared), backed by 4096-frame lock-free ring buffer; DoIOOperation drains ring buffer instead of emitting silence; StartIO/StopIO send setConsumerActive signals; 7 new Tier-1 ring buffer unit tests pass.
+**Verification:** PASS (iteration 1)
+**Commit:** (pending)
+**Files changed:** 8
+**Tests added:** 7
+**ADRs written:** 0011-driver-ipc-ring-buffer-design.md
+
+---
+
+## 2026-06-05 16:15 -- Batch started: [infrastructure-008, audio-engine-003]
+
+**Type:** Work / Batch start
+**Tasks:** infrastructure-008 - Driver IPC (Mach service, ring buffer, XPC server), audio-engine-003 - System-audio capture (Process Tap + aggregate device)
+**Parallel:** yes (2 workers)
+
+---
+
+## 2026-06-05 16:00 -- Model / Promoted: infrastructure-008, audio-engine-003, audio-engine-004
+
+**Type:** Model / Promote (batch)
+**From → To:** backlog → todo (all three)
+- infrastructure-008 — Driver IPC (Mach service, ring buffer, XPC server); related_research updated with macOS 26 ASP research
+- audio-engine-003 — System-audio capture (Process Tap + aggregate device)
+- audio-engine-004 — Mic capture (HAL IOProc + default-device tracking)
+
+---
+
+## 2026-06-05 15:30 -- Model / Captured: infrastructure-008, audio-engine-003–006, menubar-ui-002–003
+
+**Type:** Model / Capture
+**BCs:** infrastructure, audio-engine, menubar-ui
+**Filed to:** backlog (all 7)
+**Summary:** Captured the full Feature Phase 1 task set. infrastructure-008 wires the driver's Mach
+service + ring buffer + XPC server. audio-engine-003/004 implement system-audio and mic capture.
+audio-engine-005 mixes both sides. audio-engine-006 is the XPC client + lazy-activation bridge.
+menubar-ui-002 adds mute toggles with persistence. menubar-ui-003 adds the status indicator.
+Dependency chain: 003/004 → 005 → 006 (parallel with i-008) → menubar tasks.
+
+---
+
 ## 2026-06-05 13:10 -- Bug fixed: infrastructure-007 — StimmgabelDriver QueryInterface
 
 **Type:** Work / Bug fix

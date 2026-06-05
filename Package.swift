@@ -9,6 +9,7 @@ let package = Package(
     products: [
         .library(name: "AudioEngine", targets: ["AudioEngine"]),
         .library(name: "MenubarUI", targets: ["MenubarUI"]),
+        .library(name: "DriverIPC", targets: ["DriverIPC"]),
     ],
     targets: [
         .target(
@@ -18,6 +19,7 @@ let package = Package(
                 .linkedFramework("CoreAudio"),
                 .linkedFramework("CoreFoundation"),
                 .linkedFramework("AudioToolbox"),
+                .linkedFramework("AVFAudio"),
             ]
         ),
         .target(
@@ -25,10 +27,22 @@ let package = Package(
             dependencies: ["AudioEngine"],
             path: "Sources/MenubarUI"
         ),
+        // Pure-C ring buffer used by both the driver bundle and the DriverIPCTests target.
+        // No framework dependencies — the ring buffer is stdlib-only.
+        .target(
+            name: "DriverIPC",
+            path: "Sources/DriverIPC",
+            publicHeadersPath: "include"
+        ),
         .testTarget(
             name: "AudioEngineTests",
             dependencies: ["AudioEngine"],
             path: "Tests/AudioEngineTests"
+        ),
+        .testTarget(
+            name: "DriverIPCTests",
+            dependencies: ["DriverIPC"],
+            path: "Tests/DriverIPCTests"
         ),
     ]
 )

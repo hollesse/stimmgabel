@@ -52,5 +52,16 @@ Not exercised in this spike. The walking skeleton app is **unsandboxed** (no `co
 **Q3 — Install UX acceptability (single `sudo` prompt):**
 **Yes — acceptable for v1.** Single `sudo` prompt confirmed sufficient. No `.pkg` installer needed for the author workflow.
 
+### Driver IPC (infrastructure-008) implementation notes
+
+**Ring buffer:** 4096 frames × interleaved float32 stereo, lock-free SP/SR with `_Atomic(uint32_t)` heads. Canonical source in `Sources/DriverIPC/SGRingBuffer.{h,c}`; inlined into `StimmgabelDriver.c` to keep the driver self-contained.
+
+**XPC service:** Driver registers `com.innoq.stimmgabel.driver` as Mach service listener (Info.plist `AudioServerPlugIn_MachServices`). App connects as client; sends `writeSamples(data:frameCount:)`. Driver sends `setConsumerActive(bool)` back on `StartIO`/`StopIO`. Only one client accepted at a time.
+
+**REFIID on macOS 26:** In macOS 26 SDK, `REFIID = CFUUIDBytes` (struct by value). Compare with `memcmp(&inUUID, bytes, sizeof(CFUUIDBytes))` — do NOT call `CFUUIDGetUUIDBytes()`.
+
+**Known limitation:** `GetZeroTimeStamp` still returns a fixed `startHostTime` (never advances). Timing drift once real audio flows — follow-up task needed.
+
 ### Other open questions
 - Sandbox compatibility of `AudioHardwareCreateProcessTap` — deferred to the Process Tap feature task (see Q2 above).
+- `GetZeroTimeStamp` timing drift — fix in a follow-up if audible.

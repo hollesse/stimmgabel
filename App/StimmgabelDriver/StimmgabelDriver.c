@@ -1,21 +1,41 @@
 // StimmgabelDriver.c
-// Audio Server Plugin walking skeleton for Stimmgabel.
+// Audio Server Plugin for Stimmgabel.
 //
-// Produces silence (all-zero samples) at 48 kHz, float32, stereo (non-interleaved).
-// This is the spike implementation — no IPC/ring buffer yet. Real audio sourcing
-// comes in a later feature task.
+// Exposes a virtual microphone device at 48 kHz / float32 / stereo
+// (non-interleaved). Audio data is sourced from the app process via an XPC
+// service backed by a lock-free ring buffer.
+//
+// IPC architecture (ADR 0005):
+//   - Driver registers Mach service "com.innoq.stimmgabel.driver" (declared in
+//     Info.plist under AudioServerPlugIn_MachServices).
+//   - App (audio-engine) connects as XPC client and calls:
+//       writeSamples(data: float32[], frameCount: uint32)
+//   - Driver calls back on the open connection:
+//       setConsumerActive(active: bool)
+//     when StartIO / StopIO fire so the app can open / tear down its captures.
+//   - DoIOOperation drains the ring buffer; underrun → silence.
+//
+// Ring buffer:
+//   Inlined from Sources/DriverIPC/SGRingBuffer.{h,c} (same logic, tested
+//   separately via the DriverIPCTests SPM target).  Embedding keeps the driver
+//   self-contained without touching the Xcode project's source-file list.
 //
 // Reference: Apple AudioServerPlugIn.h, Apple SampleAudioDevice example,
-// Background Music BGMDriver.
+// Background Music BGMDriver, Apple QA1811.
 
 #include <CoreAudio/AudioServerPlugIn.h>
 #include <CoreAudio/AudioHardwareBase.h>
 #include <dispatch/dispatch.h>
 #include <mach/mach_time.h>
+#include <os/log.h>
 #include <pthread.h>
+#include <stdatomic.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <xpc/xpc.h>
+
+#define SGLog(fmt, ...) os_log(OS_LOG_DEFAULT, "[Stimmgabel] " fmt, ##__VA_ARGS__)
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -24,22 +44,86 @@
 #define kDeviceUID           "com.innoq.stimmgabel.virtualmic"
 #define kDeviceName          "Stimmgabel"
 #define kManufacturerName    "INNOQ"
-#define kBoxUID              "com.innoq.stimmgabel.box"
+#define kMachServiceName     "com.innoq.stimmgabel.driver"
 
 #define kSampleRate          48000.0
 #define kChannelCount        2u
 #define kBytesPerSample      4u     // float32
 #define kFramesPerPacket     1u
 #define kBytesPerFrame       (kChannelCount * kBytesPerSample)
-// ZeroTimeStamp period in frames — how many frames between successive zero timestamps
+// ZeroTimeStamp period in frames
 #define kZeroTimeStampPeriod 512u
 
-// Fixed object IDs assigned by this plug-in
+// Fixed object IDs
 #define kObjectID_PlugIn     1u
-#define kObjectID_Box        2u
-#define kObjectID_Device     3u
-#define kObjectID_Stream     4u
-#define kObjectID_Mute       5u
+#define kObjectID_Device     2u
+#define kObjectID_Stream     3u
+#define kObjectID_Mute       4u
+
+// ---------------------------------------------------------------------------
+// Lock-free ring buffer (inlined from Sources/DriverIPC/SGRingBuffer.{h,c})
+//
+// Single-producer (XPC callback thread) / single-reader (I/O thread) ring
+// buffer for interleaved stereo float32 audio frames.
+// ---------------------------------------------------------------------------
+
+#define SG_RING_CAPACITY 4096u  // frames; power of 2; ≈85 ms @ 48 kHz
+
+typedef struct {
+    float             samples[SG_RING_CAPACITY * 2u]; // [L0,R0, L1,R1, …]
+    _Atomic(uint32_t) writeHead;
+    _Atomic(uint32_t) readHead;
+} SGRingBuffer;
+
+static inline void SG_RingBuffer_Init(SGRingBuffer *rb)
+{
+    memset(rb->samples, 0, sizeof(rb->samples));
+    atomic_store_explicit(&rb->writeHead, 0u, memory_order_relaxed);
+    atomic_store_explicit(&rb->readHead,  0u, memory_order_relaxed);
+}
+
+static uint32_t SG_RingBuffer_Write(SGRingBuffer *rb,
+                                    const float  *src,
+                                    uint32_t      frameCount)
+{
+    uint32_t r    = atomic_load_explicit(&rb->readHead,  memory_order_acquire);
+    uint32_t w    = atomic_load_explicit(&rb->writeHead, memory_order_relaxed);
+    uint32_t used = w - r;
+    uint32_t free = (used < SG_RING_CAPACITY) ? (SG_RING_CAPACITY - used) : 0u;
+
+    if (frameCount > free) frameCount = free;
+    if (frameCount == 0u) return 0u;
+
+    for (uint32_t i = 0u; i < frameCount; i++) {
+        uint32_t slot = (w + i) & (SG_RING_CAPACITY - 1u);
+        rb->samples[slot * 2u]      = src[i * 2u];
+        rb->samples[slot * 2u + 1u] = src[i * 2u + 1u];
+    }
+    atomic_store_explicit(&rb->writeHead, w + frameCount, memory_order_release);
+    return frameCount;
+}
+
+static void SG_RingBuffer_Drain(SGRingBuffer *rb,
+                                float        *outLeft,
+                                float        *outRight,
+                                uint32_t      frameCount)
+{
+    uint32_t w     = atomic_load_explicit(&rb->writeHead, memory_order_acquire);
+    uint32_t r     = atomic_load_explicit(&rb->readHead,  memory_order_relaxed);
+    uint32_t avail = w - r;
+    uint32_t readFrames = (frameCount <= avail) ? frameCount : avail;
+
+    for (uint32_t i = 0u; i < readFrames; i++) {
+        uint32_t slot = (r + i) & (SG_RING_CAPACITY - 1u);
+        outLeft[i]  = rb->samples[slot * 2u];
+        outRight[i] = rb->samples[slot * 2u + 1u];
+    }
+    for (uint32_t i = readFrames; i < frameCount; i++) {
+        outLeft[i]  = 0.0f;
+        outRight[i] = 0.0f;
+    }
+    atomic_store_explicit(&rb->readHead, r + readFrames, memory_order_release);
+}
 
 // ---------------------------------------------------------------------------
 // Device state
@@ -52,12 +136,19 @@ typedef struct {
     UInt64                  frameCount;
     Boolean                 muteEnabled;
     AudioServerPlugInHostRef hostRef;
+
+    // Ring buffer — written by XPC callback, read by DoIOOperation
+    SGRingBuffer            ringBuffer;
+
+    // XPC — listener + current client connection (nil when disconnected)
+    xpc_connection_t        xpcListener;
+    xpc_connection_t        xpcClientConn;  // retained; NULL when no client
 } SGDriverState;
 
 static SGDriverState gState;
 
 // ---------------------------------------------------------------------------
-// Forward declarations (match the vtable signatures exactly)
+// Forward declarations (vtable signatures)
 // ---------------------------------------------------------------------------
 
 static HRESULT    SGDriver_QueryInterface(void *, REFIID, LPVOID *);
@@ -119,6 +210,131 @@ static AudioServerPlugInDriverInterface *gDriverInterfacePtr = &gDriverInterface
 static AudioServerPlugInDriverRef        gDriverRef           = &gDriverInterfacePtr;
 
 // ---------------------------------------------------------------------------
+// XPC helpers
+// ---------------------------------------------------------------------------
+
+// Send setConsumerActive to the currently connected client (if any).
+// Must NOT be called while holding gState.mutex.
+static void SG_XPC_SendConsumerActive(Boolean active)
+{
+    pthread_mutex_lock(&gState.mutex);
+    xpc_connection_t conn = gState.xpcClientConn;
+    if (conn) xpc_retain(conn);
+    pthread_mutex_unlock(&gState.mutex);
+
+    if (!conn) return;
+
+    xpc_object_t msg = xpc_dictionary_create(NULL, NULL, 0);
+    xpc_dictionary_set_string(msg,  "type",   "setConsumerActive");
+    xpc_dictionary_set_bool(msg,    "active",  active ? true : false);
+    xpc_connection_send_message(conn, msg);
+    xpc_release(msg);
+    xpc_release(conn);
+
+    SGLog("setConsumerActive(%s) sent to app", active ? "true" : "false");
+}
+
+// Handle an incoming XPC message from the app client.
+static void SG_XPC_HandleMessage(xpc_object_t message)
+{
+    if (xpc_get_type(message) != XPC_TYPE_DICTIONARY) return;
+
+    const char *type = xpc_dictionary_get_string(message, "type");
+    if (!type) return;
+
+    if (strcmp(type, "writeSamples") == 0) {
+        size_t      dataLen    = 0;
+        const void *dataBytes  = xpc_dictionary_get_data(message, "data", &dataLen);
+        uint32_t    frameCount = (uint32_t)xpc_dictionary_get_uint64(message, "frameCount");
+
+        if (!dataBytes || frameCount == 0) return;
+
+        // Sanity: dataLen must be frameCount * 2 * sizeof(float)
+        size_t expectedBytes = (size_t)frameCount * 2u * sizeof(float);
+        if (dataLen < expectedBytes) {
+            SGLog("writeSamples: dataLen %zu < expected %zu — ignored", dataLen, expectedBytes);
+            return;
+        }
+
+        uint32_t written = SG_RingBuffer_Write(&gState.ringBuffer,
+                                               (const float *)dataBytes,
+                                               frameCount);
+        if (written < frameCount) {
+            SGLog("writeSamples: ring buffer full, dropped %u frames", frameCount - written);
+        }
+    }
+}
+
+// Handle XPC events on a client connection (messages + errors).
+static void SG_XPC_ClientEventHandler(xpc_connection_t conn, xpc_object_t event)
+{
+    if (xpc_get_type(event) == XPC_TYPE_ERROR) {
+        if (event == XPC_ERROR_CONNECTION_INVALID ||
+            event == XPC_ERROR_TERMINATION_IMMINENT) {
+            SGLog("XPC client disconnected — draining ring buffer gracefully");
+            // Clear the stored client reference under the lock
+            pthread_mutex_lock(&gState.mutex);
+            if (gState.xpcClientConn == conn) {
+                xpc_release(gState.xpcClientConn);
+                gState.xpcClientConn = NULL;
+            }
+            pthread_mutex_unlock(&gState.mutex);
+            // Do NOT drain — let the ring buffer play out; DoIOOperation will
+            // emit silence once it empties (underrun handling).
+        }
+    } else {
+        SG_XPC_HandleMessage(event);
+    }
+}
+
+// Start the XPC listener. Called once from Initialize.
+static void SG_XPC_StartListener(void)
+{
+    // XPC_CONNECTION_MACH_SERVICE_LISTENER: this process is the server.
+    xpc_connection_t listener = xpc_connection_create_mach_service(
+        kMachServiceName,
+        dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0),
+        XPC_CONNECTION_MACH_SERVICE_LISTENER);
+
+    if (!listener) {
+        SGLog("XPC: failed to create mach service listener for %s", kMachServiceName);
+        return;
+    }
+
+    xpc_connection_set_event_handler(listener, ^(xpc_object_t event) {
+        // New incoming connection from the app
+        if (xpc_get_type(event) == XPC_TYPE_CONNECTION) {
+            xpc_connection_t newConn = (xpc_connection_t)event;
+            SGLog("XPC: new client connected");
+
+            // Accept only one client — release any previous connection
+            pthread_mutex_lock(&gState.mutex);
+            if (gState.xpcClientConn) {
+                xpc_release(gState.xpcClientConn);
+            }
+            gState.xpcClientConn = xpc_retain(newConn);
+            pthread_mutex_unlock(&gState.mutex);
+
+            xpc_connection_set_event_handler(newConn, ^(xpc_object_t clientEvent) {
+                SG_XPC_ClientEventHandler(newConn, clientEvent);
+            });
+            xpc_connection_resume(newConn);
+        } else if (xpc_get_type(event) == XPC_TYPE_ERROR) {
+            SGLog("XPC listener error: %s",
+                  xpc_dictionary_get_string(event, XPC_ERROR_KEY_DESCRIPTION));
+        }
+    });
+
+    xpc_connection_resume(listener);
+
+    pthread_mutex_lock(&gState.mutex);
+    gState.xpcListener = listener;
+    pthread_mutex_unlock(&gState.mutex);
+
+    SGLog("XPC: listener started for %s", kMachServiceName);
+}
+
+// ---------------------------------------------------------------------------
 // Entry point
 // ---------------------------------------------------------------------------
 
@@ -130,6 +346,10 @@ void *AudioServerPlugInDriverCreate(CFAllocatorRef inAllocator)
     gState.frameCount    = 0;
     gState.muteEnabled   = false;
     gState.hostRef       = NULL;
+    gState.xpcListener   = NULL;
+    gState.xpcClientConn = NULL;
+    SG_RingBuffer_Init(&gState.ringBuffer);
+    SGLog("AudioServerPlugInDriverCreate called — driver ref %p", (void*)gDriverRef);
     return gDriverRef;
 }
 
@@ -145,11 +365,14 @@ static HRESULT SGDriver_QueryInterface(void *inDriver, REFIID inUUID, LPVOID *ou
         0xEE, 0xA5, 0x77, 0x3D, 0xCC, 0x43, 0x49, 0xF1,
         0x8E, 0x00, 0x8F, 0x96, 0xE7, 0xD2, 0x3B, 0x17
     };
-    CFUUIDBytes uuidBytes = CFUUIDGetUUIDBytes(inUUID);
-    if (memcmp(&uuidBytes, kInterfaceBytes, sizeof(uuidBytes)) == 0) {
+    // REFIID is CFUUIDBytes (a 16-byte struct by value) in the macOS 26 SDK.
+    // Compare the bytes directly — no need for CFUUIDGetUUIDBytes().
+    if (memcmp(&inUUID, kInterfaceBytes, sizeof(CFUUIDBytes)) == 0) {
+        SGLog("QueryInterface -> S_OK");
         *outInterface = gDriverRef;
         return S_OK;
     }
+    SGLog("QueryInterface -> E_NOINTERFACE");
     *outInterface = NULL;
     return E_NOINTERFACE;
 }
@@ -165,9 +388,29 @@ static OSStatus SGDriver_Initialize(AudioServerPlugInDriverRef inDriver,
                                     AudioServerPlugInHostRef inHost)
 {
     (void)inDriver;
+    SGLog("Initialize called — host %p", (void*)inHost);
     pthread_mutex_lock(&gState.mutex);
     gState.hostRef = inHost;
     pthread_mutex_unlock(&gState.mutex);
+
+    // Start XPC listener before notifying coreaudiod of the device.
+    SG_XPC_StartListener();
+
+    // Notify coreaudiod asynchronously (must not call PropertiesChanged from
+    // Initialize directly — the proxy is not fully set up yet).
+    AudioServerPlugInHostRef capturedHost = inHost;
+    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+        SGLog("PropertiesChanged dispatch firing — host %p", (void*)capturedHost);
+        AudioObjectPropertyAddress addr = {
+            kAudioHardwarePropertyDevices,
+            kAudioObjectPropertyScopeGlobal,
+            kAudioObjectPropertyElementMain
+        };
+        OSStatus err = capturedHost->PropertiesChanged(capturedHost, kAudioObjectSystemObject, 1, &addr);
+        SGLog("PropertiesChanged returned %d", (int)err);
+    });
+
+    SGLog("Initialize returning noError");
     return kAudioHardwareNoError;
 }
 
@@ -205,6 +448,10 @@ static Boolean SGDriver_HasProperty(AudioServerPlugInDriverRef inDriver,
 {
     (void)inDriver; (void)inClientPID;
 
+    if (inObjectID == kObjectID_PlugIn || inObjectID == kObjectID_Device) {
+        SGLog("HasProperty obj=%u sel=0x%X", (unsigned)inObjectID, (unsigned)inAddress->mSelector);
+    }
+
     switch (inObjectID) {
     case kObjectID_PlugIn:
         switch (inAddress->mSelector) {
@@ -213,25 +460,9 @@ static Boolean SGDriver_HasProperty(AudioServerPlugInDriverRef inDriver,
         case kAudioObjectPropertyOwner:
         case kAudioObjectPropertyManufacturer:
         case kAudioObjectPropertyOwnedObjects:
-        case kAudioPlugInPropertyBoxList:
         case kAudioPlugInPropertyDeviceList:
         case kAudioPlugInPropertyTranslateUIDToDevice:
         case kAudioPlugInPropertyResourceBundle:
-            return true;
-        default: return false;
-        }
-
-    case kObjectID_Box:
-        switch (inAddress->mSelector) {
-        case kAudioObjectPropertyBaseClass:
-        case kAudioObjectPropertyClass:
-        case kAudioObjectPropertyOwner:
-        case kAudioObjectPropertyName:
-        case kAudioObjectPropertyManufacturer:
-        case kAudioObjectPropertyOwnedObjects:
-        case kAudioBoxPropertyBoxUID:
-        case kAudioBoxPropertyAcquired:
-        case kAudioBoxPropertyDeviceList:
             return true;
         default: return false;
         }
@@ -244,6 +475,7 @@ static Boolean SGDriver_HasProperty(AudioServerPlugInDriverRef inDriver,
         case kAudioObjectPropertyName:
         case kAudioObjectPropertyManufacturer:
         case kAudioObjectPropertyOwnedObjects:
+        case kAudioObjectPropertyControlList:
         case kAudioDevicePropertyDeviceUID:
         case kAudioDevicePropertyModelUID:
         case kAudioDevicePropertyTransportType:
@@ -345,6 +577,10 @@ static OSStatus SGDriver_GetPropertyDataSize(AudioServerPlugInDriverRef inDriver
 {
     (void)inDriver; (void)inClientPID; (void)inQualifierDataSize; (void)inQualifierData;
 
+    if (inObjectID == kObjectID_PlugIn || inObjectID == kObjectID_Device) {
+        SGLog("GetPropertyDataSize obj=%u sel=0x%X", (unsigned)inObjectID, (unsigned)inAddress->mSelector);
+    }
+
     switch (inObjectID) {
     case kObjectID_PlugIn:
         switch (inAddress->mSelector) {
@@ -354,23 +590,8 @@ static OSStatus SGDriver_GetPropertyDataSize(AudioServerPlugInDriverRef inDriver
         case kAudioObjectPropertyManufacturer:
         case kAudioPlugInPropertyResourceBundle: *outDataSize = sizeof(CFStringRef); return kAudioHardwareNoError;
         case kAudioObjectPropertyOwnedObjects:
-        case kAudioPlugInPropertyBoxList:   *outDataSize = sizeof(AudioObjectID); return kAudioHardwareNoError;
         case kAudioPlugInPropertyDeviceList: *outDataSize = sizeof(AudioObjectID); return kAudioHardwareNoError;
         case kAudioPlugInPropertyTranslateUIDToDevice: *outDataSize = sizeof(AudioObjectID); return kAudioHardwareNoError;
-        default: return kAudioHardwareUnknownPropertyError;
-        }
-
-    case kObjectID_Box:
-        switch (inAddress->mSelector) {
-        case kAudioObjectPropertyBaseClass:
-        case kAudioObjectPropertyClass:
-        case kAudioObjectPropertyOwner:     *outDataSize = sizeof(AudioClassID); return kAudioHardwareNoError;
-        case kAudioObjectPropertyName:
-        case kAudioObjectPropertyManufacturer:
-        case kAudioBoxPropertyBoxUID:       *outDataSize = sizeof(CFStringRef); return kAudioHardwareNoError;
-        case kAudioBoxPropertyAcquired:     *outDataSize = sizeof(UInt32); return kAudioHardwareNoError;
-        case kAudioObjectPropertyOwnedObjects:
-        case kAudioBoxPropertyDeviceList:   *outDataSize = sizeof(AudioObjectID); return kAudioHardwareNoError;
         default: return kAudioHardwareUnknownPropertyError;
         }
 
@@ -384,6 +605,7 @@ static OSStatus SGDriver_GetPropertyDataSize(AudioServerPlugInDriverRef inDriver
         case kAudioDevicePropertyDeviceUID:
         case kAudioDevicePropertyModelUID:  *outDataSize = sizeof(CFStringRef); return kAudioHardwareNoError;
         case kAudioObjectPropertyOwnedObjects: *outDataSize = sizeof(AudioObjectID) * 2; return kAudioHardwareNoError;
+        case kAudioObjectPropertyControlList:  *outDataSize = sizeof(AudioObjectID); return kAudioHardwareNoError;
         case kAudioDevicePropertyTransportType:
         case kAudioDevicePropertyClockDomain:
         case kAudioDevicePropertyDeviceIsAlive:
@@ -396,7 +618,10 @@ static OSStatus SGDriver_GetPropertyDataSize(AudioServerPlugInDriverRef inDriver
         case kAudioDevicePropertyIsHidden:  *outDataSize = sizeof(UInt32); return kAudioHardwareNoError;
         case kAudioDevicePropertyNominalSampleRate: *outDataSize = sizeof(Float64); return kAudioHardwareNoError;
         case kAudioDevicePropertyRelatedDevices:
-        case kAudioDevicePropertyStreams:   *outDataSize = sizeof(AudioObjectID); return kAudioHardwareNoError;
+        case kAudioDevicePropertyStreams:
+            *outDataSize = (inAddress->mScope == kAudioObjectPropertyScopeOutput)
+                           ? 0 : sizeof(AudioObjectID);
+            return kAudioHardwareNoError;
         case kAudioDevicePropertyAvailableNominalSampleRates: *outDataSize = sizeof(AudioValueRange); return kAudioHardwareNoError;
         case kAudioDevicePropertyIcon: *outDataSize = sizeof(CFURLRef); return kAudioHardwareNoError;
         case kAudioDevicePropertyPreferredChannelLayout: {
@@ -481,6 +706,10 @@ static OSStatus SGDriver_GetPropertyData(AudioServerPlugInDriverRef inDriver,
 #define WCF(v)  do { CFStringRef _s = (v); *outDataSize = sizeof(CFStringRef); *((CFStringRef*)outData) = _s; CFRetain(_s); } while(0)
 #define WID(v)  do { *outDataSize = sizeof(AudioObjectID); *((AudioObjectID*)outData) = (AudioObjectID)(v); } while(0)
 
+    if (inObjectID == kObjectID_PlugIn || inObjectID == kObjectID_Device) {
+        SGLog("GetPropertyData obj=%u sel=0x%X", (unsigned)inObjectID, (unsigned)inAddress->mSelector);
+    }
+
     switch (inObjectID) {
 
     // --- PlugIn ---
@@ -492,10 +721,6 @@ static OSStatus SGDriver_GetPropertyData(AudioServerPlugInDriverRef inDriver,
         case kAudioObjectPropertyManufacturer: WCF(CFSTR(kManufacturerName)); return kAudioHardwareNoError;
         case kAudioPlugInPropertyResourceBundle: WCF(CFSTR("")); return kAudioHardwareNoError;
         case kAudioObjectPropertyOwnedObjects:
-        case kAudioPlugInPropertyBoxList:
-            *outDataSize = sizeof(AudioObjectID);
-            ((AudioObjectID*)outData)[0] = kObjectID_Box;
-            return kAudioHardwareNoError;
         case kAudioPlugInPropertyDeviceList:
             *outDataSize = sizeof(AudioObjectID);
             ((AudioObjectID*)outData)[0] = kObjectID_Device;
@@ -512,30 +737,12 @@ static OSStatus SGDriver_GetPropertyData(AudioServerPlugInDriverRef inDriver,
         default: return kAudioHardwareUnknownPropertyError;
         }
 
-    // --- Box ---
-    case kObjectID_Box:
-        switch (inAddress->mSelector) {
-        case kAudioObjectPropertyBaseClass: WU32(kAudioObjectClassID); return kAudioHardwareNoError;
-        case kAudioObjectPropertyClass:     WU32(kAudioBoxClassID); return kAudioHardwareNoError;
-        case kAudioObjectPropertyOwner:     WU32(kObjectID_PlugIn); return kAudioHardwareNoError;
-        case kAudioObjectPropertyName:      WCF(CFSTR(kDeviceName)); return kAudioHardwareNoError;
-        case kAudioObjectPropertyManufacturer: WCF(CFSTR(kManufacturerName)); return kAudioHardwareNoError;
-        case kAudioBoxPropertyBoxUID:       WCF(CFSTR(kBoxUID)); return kAudioHardwareNoError;
-        case kAudioBoxPropertyAcquired:     WU32(1); return kAudioHardwareNoError;
-        case kAudioObjectPropertyOwnedObjects:
-        case kAudioBoxPropertyDeviceList:
-            *outDataSize = sizeof(AudioObjectID);
-            ((AudioObjectID*)outData)[0] = kObjectID_Device;
-            return kAudioHardwareNoError;
-        default: return kAudioHardwareUnknownPropertyError;
-        }
-
     // --- Device ---
     case kObjectID_Device:
         switch (inAddress->mSelector) {
         case kAudioObjectPropertyBaseClass: WU32(kAudioObjectClassID); return kAudioHardwareNoError;
         case kAudioObjectPropertyClass:     WU32(kAudioDeviceClassID); return kAudioHardwareNoError;
-        case kAudioObjectPropertyOwner:     WU32(kObjectID_Box); return kAudioHardwareNoError;
+        case kAudioObjectPropertyOwner:     WU32(kObjectID_PlugIn); return kAudioHardwareNoError;
         case kAudioObjectPropertyName:      WCF(CFSTR(kDeviceName)); return kAudioHardwareNoError;
         case kAudioObjectPropertyManufacturer: WCF(CFSTR(kManufacturerName)); return kAudioHardwareNoError;
         case kAudioDevicePropertyDeviceUID: WCF(CFSTR(kDeviceUID)); return kAudioHardwareNoError;
@@ -549,7 +756,9 @@ static OSStatus SGDriver_GetPropertyData(AudioServerPlugInDriverRef inDriver,
             pthread_mutex_unlock(&gState.mutex);
             WU32(r); return kAudioHardwareNoError;
         }
-        case kAudioDevicePropertyDeviceCanBeDefaultDevice:        WU32(1); return kAudioHardwareNoError;
+        case kAudioDevicePropertyDeviceCanBeDefaultDevice:
+            WU32(inAddress->mScope != kAudioObjectPropertyScopeOutput ? 1 : 0);
+            return kAudioHardwareNoError;
         case kAudioDevicePropertyDeviceCanBeDefaultSystemDevice:  WU32(0); return kAudioHardwareNoError;
         case kAudioDevicePropertyLatency:    WU32(0); return kAudioHardwareNoError;
         case kAudioDevicePropertySafetyOffset: WU32(0); return kAudioHardwareNoError;
@@ -562,10 +771,18 @@ static OSStatus SGDriver_GetPropertyData(AudioServerPlugInDriverRef inDriver,
             ((AudioObjectID*)outData)[1] = kObjectID_Mute;
             return kAudioHardwareNoError;
         }
+        case kAudioObjectPropertyControlList:
+            *outDataSize = sizeof(AudioObjectID);
+            ((AudioObjectID*)outData)[0] = kObjectID_Mute;
+            return kAudioHardwareNoError;
         case kAudioDevicePropertyRelatedDevices:
         case kAudioDevicePropertyStreams:
-            *outDataSize = sizeof(AudioObjectID);
-            ((AudioObjectID*)outData)[0] = kObjectID_Stream;
+            if (inAddress->mScope == kAudioObjectPropertyScopeOutput) {
+                *outDataSize = 0;
+            } else {
+                *outDataSize = sizeof(AudioObjectID);
+                ((AudioObjectID*)outData)[0] = kObjectID_Stream;
+            }
             return kAudioHardwareNoError;
         case kAudioDevicePropertyAvailableNominalSampleRates: {
             AudioValueRange *r = (AudioValueRange*)outData;
@@ -676,7 +893,6 @@ static OSStatus SGDriver_SetPropertyData(AudioServerPlugInDriverRef inDriver,
 
     switch (inObjectID) {
     case kObjectID_Device:
-        // Only one sample rate supported; silently accept.
         if (inAddress->mSelector == kAudioDevicePropertyNominalSampleRate)
             return kAudioHardwareNoError;
         break;
@@ -724,6 +940,12 @@ static OSStatus SGDriver_StartIO(AudioServerPlugInDriverRef inDriver,
     gState.startHostTime = mach_absolute_time();
     gState.frameCount    = 0;
     pthread_mutex_unlock(&gState.mutex);
+
+    // AC5: Notify the app that a consumer has started reading.
+    // SG_XPC_SendConsumerActive must be called WITHOUT holding the mutex.
+    SG_XPC_SendConsumerActive(true);
+    SGLog("StartIO: consumer active");
+
     return kAudioHardwareNoError;
 }
 
@@ -735,10 +957,17 @@ static OSStatus SGDriver_StopIO(AudioServerPlugInDriverRef inDriver,
     pthread_mutex_lock(&gState.mutex);
     gState.ioStatus = kAudioHardwareIllegalOperationError;
     pthread_mutex_unlock(&gState.mutex);
+
+    // AC6: Notify the app that the consumer stopped.
+    SG_XPC_SendConsumerActive(false);
+    SGLog("StopIO: consumer inactive");
+
     return kAudioHardwareNoError;
 }
 
-// GetZeroTimeStamp has three output params: sample time, host time, seed
+// GetZeroTimeStamp: three output params (sample time, host time, seed).
+// NOTE: outHostTime is returned as startHostTime and never advances — this
+// causes timing drift once real audio flows.  Fix in a follow-up if audible.
 static OSStatus SGDriver_GetZeroTimeStamp(AudioServerPlugInDriverRef inDriver,
                                           AudioObjectID inDeviceObjectID,
                                           UInt32 inClientID,
@@ -783,7 +1012,27 @@ static OSStatus SGDriver_BeginIOOperation(AudioServerPlugInDriverRef inDriver,
     return kAudioHardwareNoError;
 }
 
-// DoIOOperation has an extra ioSecondaryBuffer parameter vs the old signature
+// DoIOOperation: called per I/O cycle per channel (non-interleaved, 2 channels).
+// ioMainBuffer receives one channel's worth of samples (inIOBufferFrameSize floats).
+//
+// Strategy for non-interleaved drain:
+//   We drain left+right from the ring buffer on the FIRST channel call per cycle.
+//   We buffer the right channel in gState until the second call.
+//   A per-cycle counter (gState.frameCount used as a sentinel) tells us which
+//   call we're on.  Specifically: we use a scratch buffer for the right channel.
+//
+// Simpler implementation used here: since CoreAudio calls DoIOOperation once per
+// channel in the same I/O cycle in order (ch0 before ch1), we maintain a small
+// per-cycle scratch buffer.  On ch0 we drain and keep right samples.  On ch1 we
+// copy from scratch.  A 'channelFillPhase' flag tracks state.
+//
+// Note: this relies on the two channel calls being serialised by coreaudiod (they
+// are — the I/O thread issues them sequentially within the same I/O cycle).
+// ---------------------------------------------------------------------------
+
+static float gScratchRight[kZeroTimeStampPeriod * 4];  // over-provisioned scratch
+static Boolean gScratchReady = false;
+
 static OSStatus SGDriver_DoIOOperation(AudioServerPlugInDriverRef inDriver,
                                        AudioObjectID inDeviceObjectID,
                                        AudioObjectID inStreamObjectID,
@@ -800,13 +1049,35 @@ static OSStatus SGDriver_DoIOOperation(AudioServerPlugInDriverRef inDriver,
     if (inOperationID != kAudioServerPlugInIOOperationReadInput)
         return kAudioHardwareNoError;
 
-    // Emit silence — spike does not source real samples yet.
-    if (ioMainBuffer != NULL)
-        memset(ioMainBuffer, 0, (size_t)inIOBufferFrameSize * kBytesPerSample);
+    if (ioMainBuffer != NULL) {
+        if (!gScratchReady) {
+            // First channel call this cycle: drain interleaved from ring buffer.
+            // Clamp to scratch buffer capacity if inIOBufferFrameSize is unusually large.
+            uint32_t scratchCapacity = (uint32_t)(sizeof(gScratchRight) / sizeof(float));
+            uint32_t drainFrames = (inIOBufferFrameSize <= scratchCapacity)
+                                   ? inIOBufferFrameSize : scratchCapacity;
+            SG_RingBuffer_Drain(&gState.ringBuffer,
+                                (float *)ioMainBuffer,   // left channel → caller's buffer
+                                gScratchRight,           // right channel → scratch
+                                drainFrames);
+            // Zero-fill any frames beyond the scratch capacity
+            float *lBuf = (float *)ioMainBuffer;
+            for (uint32_t i = drainFrames; i < inIOBufferFrameSize; i++) {
+                lBuf[i]          = 0.0f;
+                gScratchRight[i] = 0.0f;
+            }
+            gScratchReady = true;
+        } else {
+            // Second channel call this cycle: copy right channel from scratch.
+            memcpy(ioMainBuffer, gScratchRight, (size_t)inIOBufferFrameSize * sizeof(float));
+            gScratchReady = false;
 
-    pthread_mutex_lock(&gState.mutex);
-    gState.frameCount += inIOBufferFrameSize;
-    pthread_mutex_unlock(&gState.mutex);
+            // Advance the frame counter once per complete I/O cycle (after both channels).
+            pthread_mutex_lock(&gState.mutex);
+            gState.frameCount += inIOBufferFrameSize;
+            pthread_mutex_unlock(&gState.mutex);
+        }
+    }
 
     return kAudioHardwareNoError;
 }
