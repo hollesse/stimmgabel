@@ -1,38 +1,4 @@
 ---
-id: infrastructure-001
-title: Decision — language & UI framework
-status: todo
-type: decision
-context: infrastructure
-created: 2026-06-05
-completed:
-commit:
-depends_on: []
-blocks: []
-tags: [foundation, language, ui-framework]
-related_adrs: []
-related_research: []
-prior_art: []
----
-
-## Why
-This is the first foundational tech choice every other BC inherits. The audio-engine BC must stay unit-testable without a display (CI constraint from the testing decision), and the menu-bar UI must use the lightest macOS-native path that keeps the published "two toggles + status line" surface honest.
-
-## What
-Commit ADR 0003 in `.agentheim/knowledge/decisions/0003-language-and-ui-framework.md` capturing the architect's recommendation: **Swift 5.10+ with SwiftUI `MenuBarExtra` (macOS 13+) as the default UI path, AppKit `NSStatusItem` + `NSMenu` as a declared fallback, and a two-target Swift Package layout (`AudioEngine` UI-free, `MenubarUI` depending on it) so the BC boundary from ADR 0002 is compiler-enforced.**
-
-## Acceptance criteria
-- [ ] `knowledge/decisions/0003-language-and-ui-framework.md` exists with `scope: global`, `status: accepted`.
-- [ ] Justification text matches the architect draft below (or the user's amended version).
-- [ ] `knowledge/index.md` updated under `<!-- adr-global:start -->`.
-- [ ] No code changes.
-
-## Notes
-
-Architect draft (paste into the ADR with id `0003`, status `accepted`, date `2026-06-05`):
-
-```markdown
----
 id: 0003
 title: Swift + SwiftUI MenuBarExtra with AppKit fallback; audio-engine is a UI-free Swift module
 scope: global
@@ -92,4 +58,3 @@ A separate, load-bearing constraint from `audio-engine/README.md` and the testin
 - `vision.md` — Non-goals (no preferences window, no settings-rich app)
 - `context-map.md` — partnership relationship between menubar-ui and audio-engine
 - ADR 0002 — bounded contexts; the module split mirrors the BC split
-```

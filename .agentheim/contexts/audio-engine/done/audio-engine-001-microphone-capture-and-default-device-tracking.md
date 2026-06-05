@@ -6,7 +6,7 @@ type: decision
 context: audio-engine
 created: 2026-06-05
 completed: 2026-06-05
-commit:
+commit: 58d72d4
 depends_on: []
 blocks: []
 tags: [foundation, audio, coreaudio, default-tracking]

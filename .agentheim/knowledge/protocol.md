@@ -5,6 +5,18 @@ Newest entries on top.
 
 ---
 
+## 2026-06-05 12:02 -- Task completed (verification skipped): infrastructure-001 - Decision — language & UI framework
+
+**Type:** Work / Task completion
+**Task:** infrastructure-001 - Decision — language & UI framework
+**Summary:** ADR 0003 written: Swift 5.10+ with SwiftUI MenuBarExtra (macOS 13+) as the default UI path, AppKit NSStatusItem+NSMenu as a declared fallback, and a two-target Swift Package layout (AudioEngine UI-free, MenubarUI depending on it) that compiler-enforces the BC boundary.
+**Verification:** SKIPPED — decision-only task (type: decision, FILES_CHANGED == 1, single ADR file)
+**Commit:** (pending)
+**Files changed:** 1
+**ADRs written:** 0003-language-and-ui-framework.md
+
+---
+
 ## 2026-06-05 12:00 -- Work session resumed: [infrastructure-001, menubar-ui-001]
 
 **Type:** Work / Batch start (resumed)

@@ -19,6 +19,7 @@ For BC-scoped artifacts, see each BC's `INDEX.md`.
 ## Global ADRs (scope: global)
 
 <!-- adr-global:start -->
+- **0003** — Swift + SwiftUI MenuBarExtra with AppKit fallback; audio-engine is a UI-free Swift module — 2026-06-05 — `knowledge/decisions/0003-language-and-ui-framework.md`
 - **0002** — Bounded contexts: audio-engine, menubar-ui, infrastructure (no design-system BC for v1) — 2026-06-05 — `knowledge/decisions/0002-bounded-contexts.md`
 - **0001** — Stimmgabel is a single-user, local-only macOS tool (no server, no sync) — 2026-06-05 — `knowledge/decisions/0001-single-user-local.md`
 <!-- adr-global:end -->
