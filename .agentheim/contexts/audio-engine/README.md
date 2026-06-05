@@ -66,4 +66,6 @@ Tactical modelling has not happened yet; these are placeholders for future `mode
 | `MicAdapter` | done | HAL IOProc on default input device, rebinds on default-input change, TCC prompt, AudioConverter for format reconciliation (ADR 0006) |
 | `AudioPipeline` | done | Consumer-lifecycle, mute-flag management, `mix(frameCount:)` entry point (ADR 0010) |
 | `Mixer` | done | Per-side staging buffers, sample-wise sum, per-side mute as zero, gain slots for v2 (audio-engine-005) |
+| `DriverOutputAdapter` | done | XPC client to driver ring buffer; drives 512-frame render timer; translates `setConsumerActive` signals into `AudioPipeline.consumerAttached/Detached` (audio-engine-006) |
+| `DriverIPCConnection` (protocol) | done | Seam for Tier-1 testing; `XPCDriverIPCConnection` is the production implementation; `FakeDriverIPCConnection` is the test double (audio-engine-006) |
 | Virtual-mic publication | not started | infrastructure BC |
