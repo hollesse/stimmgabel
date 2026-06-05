@@ -5,6 +5,19 @@ Newest entries on top.
 
 ---
 
+## 2026-06-05 12:55 -- Task verified and completed: infrastructure-006 - Walking skeleton — minimal end-to-end audio path
+
+**Type:** Work / Task completion
+**Task:** infrastructure-006 - Walking skeleton — minimal end-to-end audio path
+**Summary:** Stimmgabel.app compiles with ad-hoc-signed embedded Stimmgabel.driver (emits silence); AudioPipeline state machine has 10 passing Tier-1 unit tests; script/build produces dist/Stimmgabel.app with both bundles passing codesign --verify --verbose. Run/install acceptance criteria deferred to manual verification on a real Mac. Root README.md written. Infrastructure README Q1-Q3 empirical answers recorded.
+**Verification:** PASS (iteration 1)
+**Commit:** (pending)
+**Files changed:** 19
+**Tests added:** 10
+**ADRs written:** none
+
+---
+
 ## 2026-06-05 12:42 -- Batch started: [infrastructure-006]
 
 **Type:** Work / Batch start

@@ -1,0 +1,561 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		AA000001 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100001 /* main.swift */; };
+		AA000010 /* StimmgabelDriver.c in Sources */ = {isa = PBXBuildFile; fileRef = AA100010 /* StimmgabelDriver.c */; };
+		AA000020 /* Stimmgabel.driver in Copy Files */ = {isa = PBXBuildFile; fileRef = AA200020 /* Stimmgabel.driver */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		AA000030 /* CoreAudio.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AA300030 /* CoreAudio.framework */; };
+		AA000031 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AA300031 /* CoreFoundation.framework */; };
+		AA000032 /* AudioToolbox.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AA300032 /* AudioToolbox.framework */; };
+		AA000050 /* AudioPipelineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100050 /* AudioPipelineTests.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		AA400001 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = AA500001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = AA600020 /* StimmgabelDriver target */;
+			remoteInfo = StimmgabelDriver;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		AA700020 /* Embed Driver in Resources */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 7;
+			files = (
+				AA000020 /* Stimmgabel.driver in Copy Files */,
+			);
+			name = "Embed Driver in Resources";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		AA100001 /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = main.swift; path = Stimmgabel/main.swift; sourceTree = "<group>"; };
+		AA100010 /* StimmgabelDriver.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = StimmgabelDriver.c; path = StimmgabelDriver/StimmgabelDriver.c; sourceTree = "<group>"; };
+		AA100011 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = Info.plist; path = StimmgabelDriver/Info.plist; sourceTree = "<group>"; };
+		AA100050 /* AudioPipelineTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AudioPipelineTests.swift; path = "../Tests/AudioEngineTests/AudioPipelineTests.swift"; sourceTree = "<group>"; };
+		AA200020 /* Stimmgabel.driver */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = Stimmgabel.driver; sourceTree = BUILT_PRODUCTS_DIR; };
+		AA200001 /* Stimmgabel.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Stimmgabel.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		AA200050 /* AudioEngineTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AudioEngineTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		AA300030 /* CoreAudio.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreAudio.framework; path = System/Library/Frameworks/CoreAudio.framework; sourceTree = SDKROOT; };
+		AA300031 /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = System/Library/Frameworks/CoreFoundation.framework; sourceTree = SDKROOT; };
+		AA300032 /* AudioToolbox.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AudioToolbox.framework; path = System/Library/Frameworks/AudioToolbox.framework; sourceTree = SDKROOT; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		AA800010 /* Frameworks (app) */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AA800020 /* Frameworks (driver) */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AA000030 /* CoreAudio.framework in Frameworks */,
+				AA000031 /* CoreFoundation.framework in Frameworks */,
+				AA000032 /* AudioToolbox.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AA800050 /* Frameworks (tests) */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		AA900001 /* Root */ = {
+			isa = PBXGroup;
+			children = (
+				AA900010 /* Stimmgabel */,
+				AA900020 /* StimmgabelDriver */,
+				AA900050 /* AudioEngineTests */,
+				AA900030 /* Frameworks */,
+				AA900040 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		AA900010 /* Stimmgabel */ = {
+			isa = PBXGroup;
+			children = (
+				AA100001 /* main.swift */,
+			);
+			name = Stimmgabel;
+			sourceTree = "<group>";
+		};
+		AA900020 /* StimmgabelDriver */ = {
+			isa = PBXGroup;
+			children = (
+				AA100010 /* StimmgabelDriver.c */,
+				AA100011 /* Info.plist */,
+			);
+			name = StimmgabelDriver;
+			sourceTree = "<group>";
+		};
+		AA900050 /* AudioEngineTests */ = {
+			isa = PBXGroup;
+			children = (
+				AA100050 /* AudioPipelineTests.swift */,
+			);
+			name = AudioEngineTests;
+			sourceTree = "<group>";
+		};
+		AA900030 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				AA300030 /* CoreAudio.framework */,
+				AA300031 /* CoreFoundation.framework */,
+				AA300032 /* AudioToolbox.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		AA900040 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				AA200001 /* Stimmgabel.app */,
+				AA200020 /* Stimmgabel.driver */,
+				AA200050 /* AudioEngineTests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		AA600001 /* Stimmgabel */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = AACL0001 /* Build configuration list for PBXNativeTarget "Stimmgabel" */;
+			buildPhases = (
+				AAB00001 /* Sources */,
+				AA800010 /* Frameworks */,
+				AA700020 /* Embed Driver in Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				AA601001 /* StimmgabelDriver dependency */,
+			);
+			name = Stimmgabel;
+			packageProductDependencies = (
+				AAPKG001 /* AudioEngine */,
+				AAPKG002 /* MenubarUI */,
+			);
+			productName = Stimmgabel;
+			productReference = AA200001 /* Stimmgabel.app */;
+			productType = "com.apple.product-type.application";
+		};
+		AA600020 /* StimmgabelDriver */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = AACL0020 /* Build configuration list for PBXNativeTarget "StimmgabelDriver" */;
+			buildPhases = (
+				AAB00020 /* Sources */,
+				AA800020 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = StimmgabelDriver;
+			productName = StimmgabelDriver;
+			productReference = AA200020 /* Stimmgabel.driver */;
+			productType = "com.apple.product-type.bundle";
+		};
+		AA600050 /* AudioEngineTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = AACL0050 /* Build configuration list for PBXNativeTarget "AudioEngineTests" */;
+			buildPhases = (
+				AAB00050 /* Sources */,
+				AA800050 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = AudioEngineTests;
+			packageProductDependencies = (
+				AAPKG003 /* AudioEngine (test) */,
+			);
+			productName = AudioEngineTests;
+			productReference = AA200050 /* AudioEngineTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		AA500001 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1600;
+				LastUpgradeCheck = 1600;
+				TargetAttributes = {
+					AA600001 = {
+						CreatedOnToolsVersion = 16.0;
+					};
+					AA600020 = {
+						CreatedOnToolsVersion = 16.0;
+					};
+					AA600050 = {
+						CreatedOnToolsVersion = 16.0;
+					};
+				};
+			};
+			buildConfigurationList = AACL0000 /* Build configuration list for PBXProject "Stimmgabel" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = AA900001;
+			packageReferences = (
+				AASP0001 /* XCLocalSwiftPackageReference "../" */,
+			);
+			productRefGroup = AA900040 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				AA600001 /* Stimmgabel */,
+				AA600020 /* StimmgabelDriver */,
+				AA600050 /* AudioEngineTests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		AAB00001 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AA000001 /* main.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AAB00020 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AA000010 /* StimmgabelDriver.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AAB00050 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AA000050 /* AudioPipelineTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		AA601001 /* StimmgabelDriver dependency */ = {
+			isa = PBXTargetDependency;
+			target = AA600020 /* StimmgabelDriver */;
+			targetProxy = AA400001 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		AABCX001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		AABCX002 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+			};
+			name = Release;
+		};
+		AABCX010 /* Debug (app) */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Manual;
+				COMBINE_HIDPI_IMAGES = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_LSUIElement = YES;
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Stimmgabel routes microphone audio to a virtual input device.";
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.innoq.stimmgabel";
+				PRODUCT_NAME = Stimmgabel;
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				SKIP_INSTALL = NO;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5;
+			};
+			name = Debug;
+		};
+		AABCX011 /* Release (app) */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Manual;
+				COMBINE_HIDPI_IMAGES = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_LSUIElement = YES;
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Stimmgabel routes microphone audio to a virtual input device.";
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.innoq.stimmgabel";
+				PRODUCT_NAME = Stimmgabel;
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				SKIP_INSTALL = NO;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5;
+			};
+			name = Release;
+		};
+		AABCX020 /* Debug (driver) */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Manual;
+				INFOPLIST_FILE = StimmgabelDriver/Info.plist;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				OTHER_CODE_SIGN_FLAGS = "--deep";
+				PRODUCT_BUNDLE_IDENTIFIER = "com.innoq.stimmgabel.driver";
+				PRODUCT_NAME = Stimmgabel;
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				SKIP_INSTALL = YES;
+				WRAPPER_EXTENSION = driver;
+			};
+			name = Debug;
+		};
+		AABCX021 /* Release (driver) */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Manual;
+				INFOPLIST_FILE = StimmgabelDriver/Info.plist;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				OTHER_CODE_SIGN_FLAGS = "--deep";
+				PRODUCT_BUNDLE_IDENTIFIER = "com.innoq.stimmgabel.driver";
+				PRODUCT_NAME = Stimmgabel;
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				SKIP_INSTALL = YES;
+				WRAPPER_EXTENSION = driver;
+			};
+			name = Release;
+		};
+		AABCX050 /* Debug (tests) */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Manual;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.innoq.stimmgabel.AudioEngineTests";
+				PRODUCT_NAME = AudioEngineTests;
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				SWIFT_VERSION = 5;
+			};
+			name = Debug;
+		};
+		AABCX051 /* Release (tests) */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Manual;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.innoq.stimmgabel.AudioEngineTests";
+				PRODUCT_NAME = AudioEngineTests;
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				SWIFT_VERSION = 5;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		AACL0000 /* Build configuration list for PBXProject "Stimmgabel" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AABCX001 /* Debug */,
+				AABCX002 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		AACL0001 /* Build configuration list for PBXNativeTarget "Stimmgabel" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AABCX010 /* Debug */,
+				AABCX011 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		AACL0020 /* Build configuration list for PBXNativeTarget "StimmgabelDriver" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AABCX020 /* Debug */,
+				AABCX021 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		AACL0050 /* Build configuration list for PBXNativeTarget "AudioEngineTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AABCX050 /* Debug */,
+				AABCX051 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		AASP0001 /* XCLocalSwiftPackageReference "../" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = "../";
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		AAPKG001 /* AudioEngine */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = AASP0001 /* XCLocalSwiftPackageReference "../" */;
+			productName = AudioEngine;
+		};
+		AAPKG002 /* MenubarUI */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = AASP0001 /* XCLocalSwiftPackageReference "../" */;
+			productName = MenubarUI;
+		};
+		AAPKG003 /* AudioEngine (test) */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = AASP0001 /* XCLocalSwiftPackageReference "../" */;
+			productName = AudioEngine;
+		};
+/* End XCSwiftPackageProductDependency section */
+
+	};
+	rootObject = AA500001 /* Project object */;
+}

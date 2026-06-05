@@ -40,4 +40,18 @@ Not applicable — this BC holds tech decisions and shipping assets, not a domai
 - See `context-map.md`.
 
 ## Open questions
-- Everything in the architect's foundation pass. ADR drafts arrive as `type: decision` task notes in this BC's `todo/`.
+
+### Walking skeleton (infrastructure-006) empirical answers
+
+**Q1 — Ad-hoc-signed Audio Server Plugin loading (macOS 14.4+):**
+Manual verification pending. The walking skeleton builds and the `.driver` bundle passes `codesign --verify --verbose` (ad-hoc signature: valid on disk, satisfies its Designated Requirement). Whether `coreaudiod` actually loads the ad-hoc-signed plug-in and exposes the device requires running `script/install-driver.sh` on a real Mac and checking Audio MIDI Setup. This is the next verification step.
+*Expected answer: Yes — Background Music, BlackHole, and similar tools install ad-hoc-signed plugins successfully.*
+
+**Q2 — App Sandbox compatibility with `AudioHardwareCreateProcessTap`:**
+Not exercised in this spike. The walking skeleton app is **unsandboxed** (no `com.apple.security.app-sandbox` entitlement). The sandbox question applies only when the real Process Tap (ADR 0004) is wired in — that is a follow-up empirical task.
+
+**Q3 — Install UX acceptability (single `sudo` prompt):**
+Manual verification pending. The `script/install-driver.sh` is written to prompt exactly once. Subjective acceptability is for the author to judge after running the install on their Mac.
+
+### Other open questions
+- Whether the audio virtual device loads cleanly on macOS 26.x (Tahoe) given the project was built against the macOS 26.2 SDK but targets macOS 14.0+. The deployment target ensures binary compatibility; the SDK question is about runtime plugin loading behaviour on newer OS versions.

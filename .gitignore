@@ -1,0 +1,11 @@
+# Build outputs
+dist/
+.build/
+
+# Xcode derived data and user data
+App/Stimmgabel.xcodeproj/xcuserdata/
+App/Stimmgabel.xcodeproj/project.xcworkspace/xcuserdata/
+
+# macOS
+.DS_Store
+**/.DS_Store

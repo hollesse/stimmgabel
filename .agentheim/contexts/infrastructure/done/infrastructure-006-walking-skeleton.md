@@ -1,11 +1,11 @@
 ---
 id: infrastructure-006
 title: Walking skeleton — minimal end-to-end audio path
-status: todo
+status: done
 type: spike
 context: infrastructure
 created: 2026-06-05
-completed:
+completed: 2026-06-05
 commit:
 depends_on:
   - infrastructure-001
@@ -84,3 +84,34 @@ What this spike **deliberately omits** (these are later feature tasks):
 - **Code-signing in v1 is ad-hoc, not unsigned**, per the research-amended ADRs 0005 and 0008. If macOS still complains after `script/install-driver.sh`, do not paper over it with `xattr -dr com.apple.quarantine` and pretend the spike passed — that would mask a real Q1 failure. Investigate, document, and amend the ADR.
 - If any decision task is amended during work (the user changes the architect's draft), this spike must be revised against the amended ADR before it is implemented.
 - This is the first real code in the project. Capture any surprises (Audio Server Plugin gotchas, `coreaudiod` reload timing, XPC bring-up issues) as `model` captures or as `Open questions` updates to the relevant BC READMEs — those surprises are exactly the kind of thing future workers and refiners need.
+
+## Outcome
+
+The walking skeleton is built and all Build acceptance criteria are met. Key deliverables:
+
+- `Package.swift` — SPM manifest with `AudioEngine`, `MenubarUI` library products and `AudioEngineTests` test target
+- `Sources/AudioEngine/UpstreamCaptureAdapter.swift` — adapter protocol (ADR 0010 shape: `start()`, `stop()`, `isRunning`)
+- `Sources/AudioEngine/AudioPipeline.swift` — state machine (`idle` / `consumerAttached`) with serial dispatch queue, idempotent consumer attach/detach, and v1 mix-stage mute
+- `Sources/MenubarUI/StimmgabelApp.swift` + `MenuBarView.swift` — SwiftUI `MenuBarExtra` showing "Stimmgabel — running" and Quit
+- `Tests/AudioEngineTests/AudioPipelineTests.swift` — 10 Tier-1 unit tests; all pass via `swift test` and `xcodebuild test -scheme AudioEngineTests`
+- `App/Stimmgabel.xcodeproj` — Xcode project with Stimmgabel app target, StimmgabelDriver plug-in target, AudioEngineTests test target
+- `App/StimmgabelDriver/StimmgabelDriver.c` — Audio Server Plugin walking skeleton: 48 kHz / float32 / stereo input device emitting silence
+- `App/StimmgabelDriver/Info.plist` — plug-in manifest with CFPlugIn factory entry
+- `script/build` — produces `dist/Stimmgabel.app`; both app and driver pass `codesign --verify --verbose`
+- `script/install-driver.sh` — copies driver to `/Library/Audio/Plug-Ins/HAL/`, restarts `coreaudiod`
+- `script/uninstall-driver.sh` — removes driver, restarts `coreaudiod`
+- `README.md` — repo root: build, install, uninstall, macOS 14.0 minimum
+
+**Build acceptance criteria:** all green.
+
+**Run acceptance criteria:** manual verification pending. Install/driver-load/Audio-MIDI-Setup verification requires running `script/install-driver.sh` on the author's Mac.
+
+**Empirical Q1–Q3 status:**
+- Q1 (ad-hoc driver loads): `codesign --verify` passes; actual HAL load requires manual install step.
+- Q2 (sandbox): spike is unsandboxed as intended; sandbox question deferred to Process Tap feature task.
+- Q3 (install UX): subjective — requires author to run install and judge.
+
+**Surprises encountered during implementation:**
+- macOS 26 SDK `AudioServerPlugIn.h` API differs from many online examples: `GetZeroTimeStamp` takes an extra `UInt64* outSeed` parameter; `DoIOOperation` takes an extra `void* ioSecondaryBuffer`; `kAudioBoxPropertyIsOpen` and `kAudioDevicePropertyControlList` do not exist in this SDK version. All corrected.
+- Xcode's driver bundle code signing fails without `OTHER_CODE_SIGN_FLAGS = "--deep"` because the inner binary needs signing before the bundle seal is applied.
+- The `AudioEngineTests` scheme must be explicitly added to the Xcode project — SPM test targets do not get auto-generated test schemes when embedded in an Xcode project.

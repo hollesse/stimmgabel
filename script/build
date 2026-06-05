@@ -1,0 +1,46 @@
+#!/bin/bash
+# script/build — Build Stimmgabel.app with ad-hoc signing and copy to dist/
+#
+# Usage: ./script/build
+# Requirements: Xcode installed (xcodebuild in PATH)
+# macOS minimum: 14.0 (Sonoma)
+
+set -euo pipefail
+
+REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+PROJECT="$REPO_ROOT/App/Stimmgabel.xcodeproj"
+SCHEME="Stimmgabel"
+CONFIGURATION="Release"
+DIST_DIR="$REPO_ROOT/dist"
+BUILD_DIR="$REPO_ROOT/.build/xcodebuild"
+
+echo ">>> Building $SCHEME ($CONFIGURATION)..."
+xcodebuild \
+    -project "$PROJECT" \
+    -scheme "$SCHEME" \
+    -configuration "$CONFIGURATION" \
+    -derivedDataPath "$REPO_ROOT/.build/xcodebuild-derived" \
+    CONFIGURATION_BUILD_DIR="$BUILD_DIR" \
+    CODE_SIGN_IDENTITY="-" \
+    CODE_SIGN_STYLE=Manual \
+    PROVISIONING_PROFILE_SPECIFIER="" \
+    | grep -E "^(error:|warning:|>>>|Build succeeded|BUILD FAILED)" || true
+
+APP_PATH="$BUILD_DIR/Stimmgabel.app"
+
+if [ ! -d "$APP_PATH" ]; then
+    echo "ERROR: $APP_PATH not found after build. Check xcodebuild output above." >&2
+    exit 1
+fi
+
+echo ">>> Verifying code signatures..."
+codesign --verify --verbose "$APP_PATH" 2>&1
+codesign --verify --verbose "$APP_PATH/Contents/Resources/Stimmgabel.driver" 2>&1
+
+echo ">>> Copying to dist/..."
+rm -rf "$DIST_DIR/Stimmgabel.app"
+mkdir -p "$DIST_DIR"
+cp -R "$APP_PATH" "$DIST_DIR/Stimmgabel.app"
+
+echo ">>> Build complete: $DIST_DIR/Stimmgabel.app"
+echo "    Install driver: ./script/install-driver.sh"
