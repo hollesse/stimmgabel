@@ -54,5 +54,16 @@ Tactical modelling has not happened yet; these are placeholders for future `mode
 - ~~Which exact mechanism publishes the virtual mic — Audio Server Plugin? A modern HAL extension? Something else?~~ Resolved by ADR 0005: **Audio Server Plugin**, installed system-domain at `/Library/Audio/Plug-Ins/HAL/`, ad-hoc signed, communicates with the app via Mach service / XPC.
 - ~~How to capture *all* system audio in a way that survives default-output changes — ScreenCaptureKit vs. tap-based vs. virtual-loopback driver.~~ Resolved by ADR 0004: **CoreAudio Process Tap API** with empty-process-list `CATapDescription` wrapped in an aggregate device; rebind on `kAudioHardwarePropertyDefaultOutputDevice` change. macOS 14.4+.
 - ~~Whether mute should also suspend the muted side's upstream capture (privacy-positive: no samples even read) or only zero it in the mix (simpler).~~ Resolved by ADR 0010: **v1 zeroes in the mix**; v1 architecture preserves per-side adapter `start()` / `stop()` lifecycles so v2 can suspend-on-mute as a one-seam change.
-- Sample-rate / channel-count reconciliation between the two sides — assume the engine resamples internally to a fixed target (48 kHz / float32 / stereo, per ADR 0006); confirm with first prototype.
+- ~~Sample-rate / channel-count reconciliation between the two sides — assume the engine resamples internally to a fixed target (48 kHz / float32 / stereo, per ADR 0006); confirm with first prototype.~~ `MicAdapter` uses `AudioConverterNew` + `AudioConverterFillComplexBuffer` to reconcile on the way in; `SystemAudioAdapter` reads natively at the mix target from the Process Tap aggregate.
 - **Empirical (resolved by walking-skeleton `infrastructure-006`):** does `AudioHardwareCreateProcessTap` work inside the macOS App Sandbox? Currently no documentation says yes. The spike runs unsandboxed; sandbox compatibility is a follow-up question for the real-Process-Tap implementation (`audio-engine-003` implemented `SystemAudioAdapter` unsandboxed; a follow-up task should test sandbox behaviour empirically).
+
+## Implementation status
+
+| Component | Status | Notes |
+|---|---|---|
+| `UpstreamCaptureAdapter` (protocol) | done | Seam for Tier-1 testing (ADR 0009) |
+| `SystemAudioAdapter` | done | Process Tap, rebinds on default-output change (ADR 0004) |
+| `MicAdapter` | done | HAL IOProc on default input device, rebinds on default-input change, TCC prompt, AudioConverter for format reconciliation (ADR 0006) |
+| `AudioPipeline` | done | Consumer-lifecycle, mute-flag management (ADR 0010) |
+| Mix stage (actual sample combining) | not started | audio-engine-005 |
+| Virtual-mic publication | not started | infrastructure BC |

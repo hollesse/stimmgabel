@@ -5,13 +5,34 @@ Newest entries on top.
 
 ---
 
+## 2026-06-05 17:20 -- Task verified and completed: audio-engine-004 - Mic capture
+
+**Type:** Work / Task completion
+**Task:** audio-engine-004 - Mic capture — HAL IOProc on default input device, rebind on default-input change
+**Summary:** MicAdapter implemented as CoreAudio HAL IOProc on default input device with AVCaptureDevice TCC prompt, AudioConverter format reconciliation to 48kHz/float32/stereo, and transparent rebind on kAudioHardwarePropertyDefaultInputDevice change via serial dispatch queue; 4 new Tier-1 tests.
+**Verification:** PASS (iteration 1)
+**Commit:** (pending)
+**Files changed:** 3
+**Tests added:** 4
+**ADRs written:** none
+
+---
+
+## 2026-06-05 17:05 -- Batch started: [audio-engine-004]
+
+**Type:** Work / Batch start
+**Tasks:** audio-engine-004 - Mic capture — HAL IOProc on default input device, rebind on default-input change
+**Parallel:** no (1 worker)
+
+---
+
 ## 2026-06-05 17:00 -- Task verified and completed: audio-engine-003 - System-audio capture
 
 **Type:** Work / Task completion
 **Task:** audio-engine-003 - System-audio capture — Process Tap + aggregate device, rebind on default-output change
 **Summary:** SystemAudioAdapter implemented as CATapDescription global Process Tap wrapped in aggregate device, with IOProc buffer delivery in 48 kHz / float32 / non-interleaved stereo and automatic rebind on default-output change; UpstreamCaptureAdapter extended with onBuffer; AudioPipeline wired with onSystemAudioBuffer/onMicBuffer; 8 new Tier-1 tests.
 **Verification:** PASS (iteration 2 — iteration 1 was false positive from parallel execution)
-**Commit:** (pending)
+**Commit:** 1394b39
 **Files changed:** 5
 **Tests added:** 8
 **ADRs written:** none

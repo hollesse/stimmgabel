@@ -235,6 +235,33 @@ final class AudioPipelineTests: XCTestCase {
         XCTAssertFalse(called) // just verifies the property setter doesn't crash
     }
 
+    // MARK: - MicAdapter Tier-1 compile/state tests (ADR 0009)
+
+    func test_micAdapter_conformsToUpstreamCaptureAdapter() {
+        // Compile-time check: MicAdapter must satisfy the UpstreamCaptureAdapter protocol.
+        // This test fails to compile if the conformance is missing.
+        let _: any UpstreamCaptureAdapter = MicAdapter()
+    }
+
+    func test_micAdapter_isNotRunning_afterInit() {
+        let adapter = MicAdapter()
+        XCTAssertFalse(adapter.isRunning)
+    }
+
+    func test_micAdapter_stop_whenNotRunning_isNoOp() {
+        // stop() on a stopped adapter must not crash.
+        let adapter = MicAdapter()
+        adapter.stop()
+        XCTAssertFalse(adapter.isRunning)
+    }
+
+    func test_micAdapter_onBuffer_canBeSet() {
+        let adapter = MicAdapter()
+        var called = false
+        adapter.onBuffer = { _ in called = true }
+        XCTAssertFalse(called) // just verifies the property setter doesn't crash
+    }
+
     func test_pipeline_installsBufferHandlerOnSystemAudioAdapter_beforeStart() {
         // AudioPipeline must install onBuffer on systemAudioAdapter so that
         // a fake emitting buffers can drive the pipeline's mix stage.
