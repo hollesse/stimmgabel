@@ -5,6 +5,14 @@ Newest entries on top.
 
 ---
 
+## 2026-06-05 12:10 -- Batch started: [infrastructure-002, audio-engine-002]
+
+**Type:** Work / Batch start
+**Tasks:** infrastructure-002 - Decision — system-audio capture mechanism, audio-engine-002 - Decision — mute effect on upstream capture
+**Parallel:** yes (2 workers)
+
+---
+
 ## 2026-06-05 12:04 -- Task verified and completed: menubar-ui-001 - Decision — mute-state persistence
 
 **Type:** Work / Task completion

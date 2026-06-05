@@ -6,7 +6,7 @@ type: decision
 context: menubar-ui
 created: 2026-06-05
 completed: 2026-06-05
-commit:
+commit: 41a2fd2
 depends_on: []
 blocks: []
 tags: [foundation, persistence, userdefaults]

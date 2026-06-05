@@ -11,8 +11,8 @@ research touching this BC, and concept synthesis pages.
 
 <!-- task-counts:start -->
 - **Backlog:** 0
-- **Todo:** 5
-- **Doing:** 0
+- **Todo:** 4
+- **Doing:** 1
 - **Done:** 1
 <!-- task-counts:end -->
 
@@ -22,11 +22,11 @@ research touching this BC, and concept synthesis pages.
 - **infrastructure-005** — Decision — testing strategy — depends_on: [infrastructure-001] — `todo/infrastructure-005-testing-strategy.md`
 - **infrastructure-004** — Decision — build & release tooling — depends_on: [infrastructure-001] — `todo/infrastructure-004-build-and-release-tooling.md`
 - **infrastructure-003** — Decision — virtual-mic publishing mechanism — depends_on: [] — `todo/infrastructure-003-virtual-mic-publishing-mechanism.md`
-- **infrastructure-002** — Decision — system-audio capture mechanism — depends_on: [] — `todo/infrastructure-002-system-audio-capture-mechanism.md`
 <!-- todo-list:end -->
 
 ### Doing
 <!-- doing-list:start -->
+- **infrastructure-002** — Decision — system-audio capture mechanism — `doing/infrastructure-002-system-audio-capture-mechanism.md`
 <!-- doing-list:end -->
 
 ### Done (most recent first; older entries kept for prior-art search)

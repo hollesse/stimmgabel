@@ -11,18 +11,18 @@ research touching this BC, and concept synthesis pages.
 
 <!-- task-counts:start -->
 - **Backlog:** 0
-- **Todo:** 1
-- **Doing:** 0
+- **Todo:** 0
+- **Doing:** 1
 - **Done:** 1
 <!-- task-counts:end -->
 
 ### Todo
 <!-- todo-list:start -->
-- **audio-engine-002** — Decision — mute effect on upstream capture (v1 zero-in-mix; v1 architecture preserves v2 suspend-on-mute) — depends_on: [audio-engine-001] — `todo/audio-engine-002-mute-effect-on-upstream-capture.md`
 <!-- todo-list:end -->
 
 ### Doing
 <!-- doing-list:start -->
+- **audio-engine-002** — Decision — mute effect on upstream capture (v1 zero-in-mix; v1 architecture preserves v2 suspend-on-mute) — `doing/audio-engine-002-mute-effect-on-upstream-capture.md`
 <!-- doing-list:end -->
 
 ### Done (most recent first; older entries kept for prior-art search)
