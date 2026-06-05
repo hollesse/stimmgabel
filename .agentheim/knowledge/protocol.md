@@ -5,6 +5,18 @@ Newest entries on top.
 
 ---
 
+## 2026-06-05 12:26 -- Task completed (verification skipped): infrastructure-003 - Decision — virtual-mic publishing mechanism
+
+**Type:** Work / Task completion
+**Task:** infrastructure-003 - Decision — virtual-mic publishing mechanism
+**Summary:** ADR 0005 written: Audio Server Plugin published to system-domain `/Library/Audio/Plug-Ins/HAL/` with ad-hoc signing, Mach/XPC ring-buffer IPC, script/install-driver.sh and script/uninstall-driver.sh helpers. DriverKit and aggregate-device alternatives rejected. Scope: global.
+**Verification:** SKIPPED — decision-only task (type: decision, FILES_CHANGED == 1, single ADR file)
+**Commit:** (pending)
+**Files changed:** 1
+**ADRs written:** 0005-virtual-mic-publishing-mechanism.md
+
+---
+
 ## 2026-06-05 12:22 -- Batch started: [infrastructure-003]
 
 **Type:** Work / Batch start
