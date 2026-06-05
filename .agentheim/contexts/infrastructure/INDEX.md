@@ -12,8 +12,8 @@ research touching this BC, and concept synthesis pages.
 <!-- task-counts:start -->
 - **Backlog:** 0
 - **Todo:** 4
-- **Doing:** 1
-- **Done:** 1
+- **Doing:** 0
+- **Done:** 2
 <!-- task-counts:end -->
 
 ### Todo
@@ -26,11 +26,11 @@ research touching this BC, and concept synthesis pages.
 
 ### Doing
 <!-- doing-list:start -->
-- **infrastructure-002** — Decision — system-audio capture mechanism — `doing/infrastructure-002-system-audio-capture-mechanism.md`
 <!-- doing-list:end -->
 
 ### Done (most recent first; older entries kept for prior-art search)
 <!-- done-list:start -->
+- **infrastructure-002** — Decision — system-audio capture mechanism — `done/infrastructure-002-system-audio-capture-mechanism.md`
 - **infrastructure-001** — Decision — language & UI framework — `done/infrastructure-001-language-and-ui-framework.md`
 <!-- done-list:end -->
 

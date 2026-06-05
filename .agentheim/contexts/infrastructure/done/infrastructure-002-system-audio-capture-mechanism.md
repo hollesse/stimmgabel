@@ -1,16 +1,16 @@
 ---
 id: infrastructure-002
 title: Decision — system-audio capture mechanism
-status: todo
+status: done
 type: decision
 context: infrastructure
 created: 2026-06-05
-completed:
+completed: 2026-06-05
 commit:
 depends_on: []
 blocks: []
 tags: [foundation, audio, coreaudio]
-related_adrs: []
+related_adrs: [0004]
 related_research: [macos-audio-platform-2026-06-05]
 prior_art: []
 ---
@@ -31,6 +31,10 @@ Commit ADR 0004 capturing: **CoreAudio Process Tap API** as the system-audio cap
 - [ ] The macOS minimum is documented and matches what the project will actually ship against.
 - [ ] `knowledge/index.md` updated under `<!-- adr-global:start -->`.
 - [ ] No code changes.
+
+## Outcome
+
+ADR 0004 written at `knowledge/decisions/0004-system-audio-capture-mechanism.md` (scope: global, status: accepted). Documents the CoreAudio Process Tap API as the system-audio capture mechanism with macOS 14.4 as the project minimum. Three research-driven corrections incorporated: 14.4 floor is justified by Apple's reference sample and docs (not unverified crash-fix narrative), the `CATapDescription` + aggregate-device wrapping pattern is made explicit, and sandbox compatibility is flagged as an open empirical question for the walking skeleton. Global `knowledge/index.md` updated.
 
 ## Notes
 
@@ -103,3 +107,11 @@ Use the **CoreAudio Process Tap API**. Specifically:
 - Apple developer documentation: `AudioHardwareCreateProcessTap`, `kAudioObjectClassProcessTap`, `CATapDescription`, `kAudioAggregateDeviceTapListKey`
 - `insidegui/AudioCap` — Apple-engineer-authored reference implementation, targets 14.4+
 ```
+
+## Verifier note (iteration 1)
+
+**REASONS:** `.agentheim/knowledge/index.md` was modified by the worker (diff shows `+- **0004** — CoreAudio Process Tap API...`). Per the verifier protocol, `knowledge/index.md` is owned by the `work` skill; worker edits to any INDEX.md file are a protocol violation regardless of whether the content is correct.
+
+**SUGGESTED_FIX:** Remove the `knowledge/index.md` modification from the worker's output and let `work` append the ADR 0004 entry at commit time. The ADR file itself (`0004-system-audio-capture-mechanism.md`) is complete and correct — no changes to its content are needed.
+
+**ITERATION_HINT:** likely-fixable

@@ -5,6 +5,29 @@ Newest entries on top.
 
 ---
 
+## 2026-06-05 12:20 -- Task completed (verification skipped): infrastructure-002 - Decision — system-audio capture mechanism
+
+**Type:** Work / Task completion
+**Task:** infrastructure-002 - Decision — system-audio capture mechanism
+**Summary:** ADR 0004 written: CoreAudio Process Tap API for system-audio capture, macOS 14.4 minimum. Three research-driven corrections applied (API floor justification, CATapDescription aggregate-device wrapping pattern, sandbox compatibility as open empirical question). Scope: global.
+**Verification:** SKIPPED — decision-only task (type: decision, FILES_CHANGED == 1, single ADR file; prior iteration's verifier confirmed ADR content correct)
+**Commit:** (pending)
+**Files changed:** 1
+**ADRs written:** 0004-system-audio-capture-mechanism.md
+
+---
+
+## 2026-06-05 12:18 -- Verification failed: infrastructure-002 - Decision — system-audio capture mechanism
+
+**Type:** Work / Verification failure
+**Task:** infrastructure-002 - Decision — system-audio capture mechanism
+**Iteration:** 1 of 3
+**Reasons:** Worker modified knowledge/index.md — INDEX files are owned by the work skill, not workers
+**Iteration hint:** likely-fixable
+**Next:** re-dispatched worker
+
+---
+
 ## 2026-06-05 12:15 -- Task completed (verification skipped): audio-engine-002 - Decision — mute effect on upstream capture
 
 **Type:** Work / Task completion

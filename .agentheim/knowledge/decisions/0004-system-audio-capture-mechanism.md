@@ -1,43 +1,4 @@
 ---
-id: infrastructure-002
-title: Decision — system-audio capture mechanism
-status: todo
-type: decision
-context: infrastructure
-created: 2026-06-05
-completed:
-commit:
-depends_on: []
-blocks: []
-tags: [foundation, audio, coreaudio]
-related_adrs: []
-related_research: [macos-audio-platform-2026-06-05]
-prior_art: []
----
-
-## Why
-The "capture all system audio" half of Stimmgabel's mix is the load-bearing technical choice for the whole project. Every other audio-engine decision flows from this one (minimum macOS version, entitlements requested, install story, whether the user has to change a system setting).
-
-## What
-Commit ADR 0004 capturing: **CoreAudio Process Tap API** as the system-audio capture mechanism, with **macOS 14.4 set as the project's minimum** — research confirmed that while the symbols exist in 14.2, Apple's own sample (`insidegui/AudioCap`) and current docs target 14.4+ as the practical floor. ScreenCaptureKit rejected (TCC screen-recording prompt is dishonest UX for an audio tool, and research also showed there is no real audio-only mode anyway — SCK requires a screen session even if frames are discarded). Virtual loopback drivers rejected (they reintroduce the brittleness Stimmgabel exists to eliminate; Loopback itself migrated off this pattern in macOS 14.5+ to a Process-Tap-based architecture).
-
-**Research findings (`macos-audio-platform-2026-06-05`) made three small corrections in the architect's original draft:**
-1. The "14.2 had crashes, 14.4 fixed them" specific narrative is **not directly attested**; what *is* attested is that Apple's sample code and docs target 14.4+. Use 14.4 as the floor for that reason rather than the unverified-crash-fix story.
-2. The system-wide pattern uses an empty process list in `CATapDescription` (`initStereoGlobalTapButExcludeProcesses([])`) wrapped in an **aggregate device** that lists the tap under `kAudioAggregateDeviceTapListKey`. The architect's "tap the output device" mental model is correct but the API shape is more explicit.
-3. **Sandbox compatibility** of `AudioHardwareCreateProcessTap` is not directly documented. AudioCap's README does not declare its sandbox status; AudioTee is a CLI tool. Treat as an open empirical question to validate in the walking skeleton (`infrastructure-006`).
-
-## Acceptance criteria
-- [ ] `knowledge/decisions/0004-system-audio-capture-mechanism.md` exists with `scope: global`, `status: accepted`.
-- [ ] The macOS minimum is documented and matches what the project will actually ship against.
-- [ ] `knowledge/index.md` updated under `<!-- adr-global:start -->`.
-- [ ] No code changes.
-
-## Notes
-
-Architect draft, **amended on 2026-06-05 to reflect research findings** (`knowledge/research/macos-audio-platform-2026-06-05.md` claims 1.1 / 1.3 / 1.4 / 2). Paste into the ADR with id `0004`, status `accepted`, date `2026-06-05`:
-
-```markdown
----
 id: 0004
 title: Capture system audio via the CoreAudio Process Tap API; minimum macOS 14.4
 scope: global
@@ -102,4 +63,3 @@ Use the **CoreAudio Process Tap API**. Specifically:
 - `knowledge/research/macos-audio-platform-2026-06-05.md` — verified API timeline, aggregate-device wrapping pattern, sandbox open question, SCK no-audio-only mode finding
 - Apple developer documentation: `AudioHardwareCreateProcessTap`, `kAudioObjectClassProcessTap`, `CATapDescription`, `kAudioAggregateDeviceTapListKey`
 - `insidegui/AudioCap` — Apple-engineer-authored reference implementation, targets 14.4+
-```
