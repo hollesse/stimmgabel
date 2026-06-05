@@ -10,6 +10,7 @@ final class FakeUpstreamCaptureAdapter: UpstreamCaptureAdapter, @unchecked Senda
     private(set) var startCallCount: Int = 0
     private(set) var stopCallCount: Int = 0
     private(set) var isRunning: Bool = false
+    var deviceName: String = ""
 
     /// Buffer handler installed by the owner (e.g. AudioPipeline).
     var onBuffer: ((AVAudioPCMBuffer) -> Void)?

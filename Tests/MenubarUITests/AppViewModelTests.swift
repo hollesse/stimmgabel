@@ -8,6 +8,7 @@ import AudioEngine
 private final class FakeUpstreamCaptureAdapter: UpstreamCaptureAdapter, @unchecked Sendable {
     private(set) var isRunning: Bool = false
     var onBuffer: ((AVAudioPCMBuffer) -> Void)?
+    var deviceName: String = ""
     func start() throws { isRunning = true }
     func stop() { isRunning = false }
 }
@@ -142,6 +143,57 @@ final class AppViewModelTests: XCTestCase {
 
         let readBack = MutePreferences(defaults: testDefaults)
         XCTAssertTrue(readBack.systemAudioMuted)
+    }
+
+    // MARK: - Status indicator (ADR 0009, menubar-ui-003)
+
+    func test_consumerActive_false_whenPipelineIdle() {
+        let pipeline = makePipeline()
+        let vm = makeViewModel(pipeline: pipeline)
+
+        XCTAssertFalse(vm.consumerActive)
+    }
+
+    func test_consumerActive_true_afterPipelineConsumerAttached() {
+        let pipeline = makePipeline()
+        let vm = makeViewModel(pipeline: pipeline)
+
+        pipeline.consumerAttached()
+        // Simulate the stateDidChange callback reaching the view model synchronously.
+        vm.pipelineState = .consumerAttached
+
+        XCTAssertTrue(vm.consumerActive)
+    }
+
+    func test_consumerStatusDisplayString_idle() {
+        let pipeline = makePipeline()
+        let vm = makeViewModel(pipeline: pipeline)
+
+        XCTAssertEqual(vm.consumerStatusDisplayString, "Idle — no app reading")
+    }
+
+    func test_consumerStatusDisplayString_active() {
+        let pipeline = makePipeline()
+        let vm = makeViewModel(pipeline: pipeline)
+        vm.pipelineState = .consumerAttached
+
+        XCTAssertEqual(vm.consumerStatusDisplayString, "Active")
+    }
+
+    func test_currentMicDeviceName_reflectsPipeline() {
+        let pipeline = makePipeline()
+        pipeline.currentMicDeviceName = "AirPods Pro"
+        let vm = makeViewModel(pipeline: pipeline)
+
+        XCTAssertEqual(vm.currentMicDeviceName, "AirPods Pro")
+    }
+
+    func test_currentSystemAudioDeviceName_reflectsPipeline() {
+        let pipeline = makePipeline()
+        pipeline.currentSystemAudioDeviceName = "MacBook Pro Speakers"
+        let vm = makeViewModel(pipeline: pipeline)
+
+        XCTAssertEqual(vm.currentSystemAudioDeviceName, "MacBook Pro Speakers")
     }
 
     // MARK: - Persisted state is restored on launch

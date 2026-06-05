@@ -10,6 +10,24 @@ struct MenuBarView: View {
     @EnvironmentObject private var viewModel: AppViewModel
 
     var body: some View {
+        // ── Status section ──────────────────────────────────────────
+        // Consumer status row: ● Active / ○ Idle
+        Text(viewModel.consumerActive ? "● Active" : "○ Idle — no app reading")
+            .foregroundStyle(viewModel.consumerActive ? Color.primary : Color.secondary)
+            .disabled(true)
+
+        // Device name rows — shown grayed-out as display-only items.
+        Text("Mic: \(viewModel.currentMicDeviceName.isEmpty ? "—" : viewModel.currentMicDeviceName)")
+            .foregroundStyle(Color.secondary)
+            .disabled(true)
+
+        Text("System audio: \(viewModel.currentSystemAudioDeviceName.isEmpty ? "—" : viewModel.currentSystemAudioDeviceName)")
+            .foregroundStyle(Color.secondary)
+            .disabled(true)
+
+        Divider()
+
+        // ── Mute toggles ────────────────────────────────────────────
         // "Mic" toggle — checkmark when muted.
         Button {
             viewModel.micMuted.toggle()

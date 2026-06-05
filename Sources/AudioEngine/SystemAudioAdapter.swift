@@ -27,6 +27,10 @@ public final class SystemAudioAdapter: UpstreamCaptureAdapter, @unchecked Sendab
     public private(set) var isRunning: Bool = false
     public var onBuffer: ((AVAudioPCMBuffer) -> Void)?
 
+    /// Human-readable name of the current default output device (the source of system audio).
+    /// Updated whenever the adapter opens or rebinds to a device.
+    public private(set) var deviceName: String = ""
+
     // MARK: - Private state
 
     /// Serial queue that serialises all lifecycle operations (create, destroy, rebind).
@@ -103,6 +107,7 @@ public final class SystemAudioAdapter: UpstreamCaptureAdapter, @unchecked Sendab
         // 1. Find the current default output device.
         let defaultOutputDevice = try currentDefaultOutputDevice()
         currentOutputDeviceID = defaultOutputDevice
+        deviceName = readDeviceName(for: defaultOutputDevice)
 
         // 2. Create the Process Tap.
         tapObjectID = try createTap(boundToOutputDevice: defaultOutputDevice)
@@ -143,6 +148,22 @@ public final class SystemAudioAdapter: UpstreamCaptureAdapter, @unchecked Sendab
         }
 
         currentOutputDeviceID = kAudioObjectUnknown
+        deviceName = ""
+    }
+
+    // MARK: - Device name
+
+    private func readDeviceName(for device: AudioDeviceID) -> String {
+        var address = AudioObjectPropertyAddress(
+            mSelector: kAudioDevicePropertyDeviceName,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        var nameBytes = [CChar](repeating: 0, count: 256)
+        var size = UInt32(nameBytes.count)
+        let status = AudioObjectGetPropertyData(device, &address, 0, nil, &size, &nameBytes)
+        guard status == noErr else { return "" }
+        return String(cString: nameBytes)
     }
 
     // MARK: - Process Tap creation

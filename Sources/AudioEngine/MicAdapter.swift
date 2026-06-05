@@ -36,6 +36,10 @@ public final class MicAdapter: UpstreamCaptureAdapter, @unchecked Sendable {
     public private(set) var isRunning: Bool = false
     public var onBuffer: ((AVAudioPCMBuffer) -> Void)?
 
+    /// Human-readable name of the current default input device.
+    /// Updated whenever the adapter opens or rebinds to a device.
+    public private(set) var deviceName: String = ""
+
     // MARK: - Private state
 
     /// Serial queue that serialises all lifecycle operations (start, stop, rebind).
@@ -163,6 +167,7 @@ public final class MicAdapter: UpstreamCaptureAdapter, @unchecked Sendable {
     private func openDevice() throws {
         let newDeviceID = try resolveDefaultInputDevice()
         deviceID = newDeviceID
+        deviceName = readDeviceName(for: newDeviceID)
 
         // Determine the device's native stream format so we can build a converter.
         nativeFormat = try nativeInputFormat(for: newDeviceID)
@@ -188,6 +193,22 @@ public final class MicAdapter: UpstreamCaptureAdapter, @unchecked Sendable {
 
         nativeFormat = nil
         deviceID = kAudioObjectUnknown
+        deviceName = ""
+    }
+
+    // MARK: - Device name
+
+    private func readDeviceName(for device: AudioDeviceID) -> String {
+        var address = AudioObjectPropertyAddress(
+            mSelector: kAudioDevicePropertyDeviceName,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        var nameBytes = [CChar](repeating: 0, count: 256)
+        var size = UInt32(nameBytes.count)
+        let status = AudioObjectGetPropertyData(device, &address, 0, nil, &size, &nameBytes)
+        guard status == noErr else { return "" }
+        return String(cString: nameBytes)
     }
 
     // MARK: - Default input device resolution

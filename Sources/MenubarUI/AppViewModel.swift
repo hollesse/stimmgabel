@@ -36,6 +36,33 @@ public final class AppViewModel: ObservableObject {
         }
     }
 
+    // MARK: - Status indicator state
+
+    /// Whether a consumer is currently reading from the virtual mic.
+    /// Reflects `pipelineState == .consumerAttached`.
+    public var consumerActive: Bool {
+        pipelineState == .consumerAttached
+    }
+
+    /// Human-readable display string for consumer status.
+    /// - "Idle — no app reading" when no consumer is attached.
+    /// - "Active" when a consumer is reading.
+    public var consumerStatusDisplayString: String {
+        consumerActive ? "Active" : "Idle — no app reading"
+    }
+
+    /// Human-readable name of the current default input device.
+    /// Sourced from `AudioPipeline.currentMicDeviceName`.
+    public var currentMicDeviceName: String {
+        pipeline.currentMicDeviceName
+    }
+
+    /// Human-readable name of the current default output device.
+    /// Sourced from `AudioPipeline.currentSystemAudioDeviceName`.
+    public var currentSystemAudioDeviceName: String {
+        pipeline.currentSystemAudioDeviceName
+    }
+
     // MARK: - Internals
 
     let pipeline: AudioPipeline
@@ -93,6 +120,15 @@ public final class AppViewModel: ObservableObject {
                 self?.pipelineState = newState
             }
         }
+
+        // Subscribe to device-name changes so SwiftUI re-renders the status section
+        // when device names update (e.g. user plugs in headphones).
+        pipeline.deviceNamesDidChange = { [weak self] in
+            Task { @MainActor [weak self] in
+                self?.objectWillChange.send()
+            }
+        }
+
         // Snapshot current state in case a consumer already attached.
         pipelineState = pipeline.state
     }

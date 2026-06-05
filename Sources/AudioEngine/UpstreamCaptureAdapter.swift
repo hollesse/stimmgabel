@@ -26,4 +26,8 @@ public protocol UpstreamCaptureAdapter: AnyObject, Sendable {
     /// Called by the adapter on every render cycle with a buffer in the mix target format.
     /// Set this before calling `start()`. The handler may be called on any thread.
     var onBuffer: ((AVAudioPCMBuffer) -> Void)? { get set }
+
+    /// Human-readable name of the current underlying CoreAudio device.
+    /// Empty string when the adapter is not running or the name cannot be resolved.
+    var deviceName: String { get }
 }

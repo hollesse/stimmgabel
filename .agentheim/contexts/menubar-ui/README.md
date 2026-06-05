@@ -44,18 +44,36 @@ Tactical modelling pending. Likely a single small aggregate:
 
 ## Implementation status
 
-### What exists (menubar-ui-002)
+### What exists (menubar-ui-003)
 
 - `MutePreferences` — value type backed by `UserDefaults`. Keys: `com.innoq.stimmgabel.muteMicSide`, `com.innoq.stimmgabel.muteSystemAudioSide`. Defaults to `false` for both sides.
-- `AppViewModel` — `@MainActor ObservableObject`. Holds `AudioPipeline` and `DriverOutputAdapter`. On init: reads persisted mute, applies to pipeline. On toggle: persists + calls `AudioPipeline.setSideMute`. Exposes `menuBarIconName` (computed, SF Symbols).
+- `AppViewModel` — `@MainActor ObservableObject`. Holds `AudioPipeline` and `DriverOutputAdapter`. On init: reads persisted mute, applies to pipeline. On toggle: persists + calls `AudioPipeline.setSideMute`. Exposes:
+  - `menuBarIconName` (computed, SF Symbols)
+  - `consumerActive: Bool` (computed from `pipelineState`)
+  - `consumerStatusDisplayString: String` ("Active" / "Idle — no app reading")
+  - `currentMicDeviceName: String` (proxied from `AudioPipeline`)
+  - `currentSystemAudioDeviceName: String` (proxied from `AudioPipeline`)
 - `StimmgabelApp` — `MenuBarExtra` wired to `AppViewModel`. Icon: `waveform.slash` (idle), `waveform` (active), `waveform.badge.minus` (active + at least one side muted).
-- `MenuBarView` — two checkable menu items ("Mic", "System audio"), separator, Quit.
+- `MenuBarView` — status section (consumer status + device names) above the mute toggles, then mute toggles ("Mic", "System audio"), separator, Quit.
+- `AudioPipeline` exposes `consumerActive`, `currentMicDeviceName`, `currentSystemAudioDeviceName` (plain readable properties updated on consumer attach/detach). `deviceNamesDidChange` callback notifies `AppViewModel` when device names update.
+- `UpstreamCaptureAdapter` protocol now includes `deviceName: String`. `MicAdapter` and `SystemAudioAdapter` populate it from `kAudioDevicePropertyDeviceName` via CoreAudio.
 
 ### Icon states (implemented)
 
 - *idle*: `waveform.slash` — no consumer attached; engine is asleep.
 - *active*: `waveform` — consumer reading, no mutes.
 - *muted (one side)*: `waveform.badge.minus` — at least one side muted; visible at a glance.
+
+### Status indicator (implemented — menubar-ui-003)
+
+Dropdown layout (from top to bottom):
+1. `● Active` or `○ Idle — no app reading` — consumer attachment status
+2. `Mic: [device name]` — current default input device name (grayed)
+3. `System audio: [device name]` — current default output device name (grayed)
+4. Divider
+5. Mic / System audio mute toggles
+6. Divider
+7. Quit
 
 ## Open questions
 - Mute-state persistence across app restart / reboot — **resolved**: `UserDefaults.standard` behind `MutePreferences` (ADR 0007). **Implemented** in menubar-ui-002.

@@ -32,6 +32,33 @@ public final class AudioPipeline: @unchecked Sendable {
     /// Called on the serial state queue whenever `state` changes.
     public var stateDidChange: ((AudioPipelineState) -> Void)?
 
+    // MARK: - Observable consumer / device state
+
+    /// `true` when a consumer is actively reading from the virtual mic.
+    /// Updated on `consumerAttached()` / `consumerDetached()`.
+    public var consumerActive: Bool {
+        queue.sync { state == .consumerAttached }
+    }
+
+    /// Human-readable name of the current default input device (sourced from `MicAdapter`).
+    /// Empty when the adapter is not running.
+    public var currentMicDeviceName: String {
+        get { queue.sync { _currentMicDeviceName } }
+        set { queue.sync { _currentMicDeviceName = newValue } }
+    }
+    private var _currentMicDeviceName: String = ""
+
+    /// Human-readable name of the current default output device (sourced from `SystemAudioAdapter`).
+    /// Empty when the adapter is not running.
+    public var currentSystemAudioDeviceName: String {
+        get { queue.sync { _currentSystemAudioDeviceName } }
+        set { queue.sync { _currentSystemAudioDeviceName = newValue } }
+    }
+    private var _currentSystemAudioDeviceName: String = ""
+
+    /// Called on the serial state queue whenever device names change.
+    public var deviceNamesDidChange: (() -> Void)?
+
     // MARK: - Buffer callbacks (pass-through, v1)
 
     /// Called on each render cycle with the system-audio buffer (mix target format).
@@ -96,8 +123,11 @@ public final class AudioPipeline: @unchecked Sendable {
             guard state == .idle else { return }
             try? micAdapter.start()
             try? systemAudioAdapter.start()
+            _currentMicDeviceName = micAdapter.deviceName
+            _currentSystemAudioDeviceName = systemAudioAdapter.deviceName
             state = .consumerAttached
         }
+        deviceNamesDidChange?()
     }
 
     /// Called when the last downstream consumer detaches.
@@ -107,8 +137,11 @@ public final class AudioPipeline: @unchecked Sendable {
             guard state == .consumerAttached else { return }
             micAdapter.stop()
             systemAudioAdapter.stop()
+            _currentMicDeviceName = micAdapter.deviceName
+            _currentSystemAudioDeviceName = systemAudioAdapter.deviceName
             state = .idle
         }
+        deviceNamesDidChange?()
     }
 
     // MARK: - Mute (v1: mix-stage only, ADR 0010)
