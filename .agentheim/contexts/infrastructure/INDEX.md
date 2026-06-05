@@ -11,8 +11,8 @@ research touching this BC, and concept synthesis pages.
 
 <!-- task-counts:start -->
 - **Backlog:** 0
-- **Todo:** 4
-- **Doing:** 0
+- **Todo:** 3
+- **Doing:** 1
 - **Done:** 2
 <!-- task-counts:end -->
 
@@ -21,11 +21,11 @@ research touching this BC, and concept synthesis pages.
 - **infrastructure-006** — Walking skeleton — minimal end-to-end audio path — depends_on: [infrastructure-001, infrastructure-002, infrastructure-003, infrastructure-004, infrastructure-005, audio-engine-001, audio-engine-002, menubar-ui-001] — `todo/infrastructure-006-walking-skeleton.md`
 - **infrastructure-005** — Decision — testing strategy — depends_on: [infrastructure-001] — `todo/infrastructure-005-testing-strategy.md`
 - **infrastructure-004** — Decision — build & release tooling — depends_on: [infrastructure-001] — `todo/infrastructure-004-build-and-release-tooling.md`
-- **infrastructure-003** — Decision — virtual-mic publishing mechanism — depends_on: [] — `todo/infrastructure-003-virtual-mic-publishing-mechanism.md`
 <!-- todo-list:end -->
 
 ### Doing
 <!-- doing-list:start -->
+- **infrastructure-003** — Decision — virtual-mic publishing mechanism — `doing/infrastructure-003-virtual-mic-publishing-mechanism.md`
 <!-- doing-list:end -->
 
 ### Done (most recent first; older entries kept for prior-art search)

@@ -6,7 +6,7 @@ type: decision
 context: audio-engine
 created: 2026-06-05
 completed: 2026-06-05
-commit:
+commit: 24df490
 depends_on: [audio-engine-001]
 blocks: []
 tags: [foundation, audio, mute, privacy, mic-indicator]

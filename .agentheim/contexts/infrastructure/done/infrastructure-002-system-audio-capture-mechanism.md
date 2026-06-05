@@ -6,7 +6,7 @@ type: decision
 context: infrastructure
 created: 2026-06-05
 completed: 2026-06-05
-commit:
+commit: 094322c
 depends_on: []
 blocks: []
 tags: [foundation, audio, coreaudio]
