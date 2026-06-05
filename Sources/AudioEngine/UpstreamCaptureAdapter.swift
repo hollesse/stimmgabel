@@ -1,3 +1,5 @@
+import AVFAudio
+
 /// Abstraction over a single upstream capture path (mic or system audio).
 ///
 /// The adapter owns the lifecycle of the underlying CoreAudio resource (HAL IOProc or
@@ -5,7 +7,11 @@
 ///
 /// Conforming to this protocol is the seam that lets unit tests substitute
 /// fakes for real CoreAudio resources (ADR 0009, Tier 1).
-public protocol UpstreamCaptureAdapter: Sendable {
+///
+/// Buffer delivery: the adapter calls `onBuffer` on each render cycle with an
+/// `AVAudioPCMBuffer` in the mix target format (48 kHz / float32 / non-interleaved stereo).
+/// The handler is installed by the owner (typically `AudioPipeline`) before `start()`.
+public protocol UpstreamCaptureAdapter: AnyObject, Sendable {
     /// Open the underlying CoreAudio resource and begin delivering audio buffers.
     /// Calling `start()` on an already-running adapter is a no-op.
     func start() throws
@@ -16,4 +22,8 @@ public protocol UpstreamCaptureAdapter: Sendable {
 
     /// Whether the adapter is currently running.
     var isRunning: Bool { get }
+
+    /// Called by the adapter on every render cycle with a buffer in the mix target format.
+    /// Set this before calling `start()`. The handler may be called on any thread.
+    var onBuffer: ((AVAudioPCMBuffer) -> Void)? { get set }
 }

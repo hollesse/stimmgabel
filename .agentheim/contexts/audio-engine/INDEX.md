@@ -10,14 +10,15 @@ research touching this BC, and concept synthesis pages.
 ## Tasks by status
 
 <!-- task-counts:start -->
-- **Backlog:** 0
-- **Todo:** 0
+- **Backlog:** 2
+- **Todo:** 1
 - **Doing:** 0
-- **Done:** 2
+- **Done:** 3
 <!-- task-counts:end -->
 
 ### Todo
 <!-- todo-list:start -->
+- **audio-engine-004** — Mic capture — HAL IOProc on default input device, rebind on default-input change — `todo/audio-engine-004-mic-capture-default-tracking.md`
 <!-- todo-list:end -->
 
 ### Doing
@@ -26,12 +27,15 @@ research touching this BC, and concept synthesis pages.
 
 ### Done (most recent first; older entries kept for prior-art search)
 <!-- done-list:start -->
+- **audio-engine-003** — System-audio capture — Process Tap + aggregate device, rebind on default-output change — `done/audio-engine-003-system-audio-capture-process-tap.md`
 - **audio-engine-002** — Decision — mute effect on upstream capture (v1 zero-in-mix; v1 architecture preserves v2 suspend-on-mute) — `done/audio-engine-002-mute-effect-on-upstream-capture.md`
 - **audio-engine-001** — Decision — microphone capture & default-device tracking — `done/audio-engine-001-microphone-capture-and-default-device-tracking.md`
 <!-- done-list:end -->
 
 ### Backlog
 <!-- backlog-list:start -->
+- **audio-engine-005** — Mix — combine mic side and system-audio side into a single float32 stereo buffer — `backlog/audio-engine-005-mix-both-sides.md`
+- **audio-engine-006** — Output adapter — XPC client that writes mix frames into the driver ring buffer and handles lazy activation — `backlog/audio-engine-006-output-adapter-ipc-client.md`
 <!-- backlog-list:end -->
 
 ## ADRs scoped to this BC

@@ -5,13 +5,37 @@ Newest entries on top.
 
 ---
 
+## 2026-06-05 17:00 -- Task verified and completed: audio-engine-003 - System-audio capture
+
+**Type:** Work / Task completion
+**Task:** audio-engine-003 - System-audio capture — Process Tap + aggregate device, rebind on default-output change
+**Summary:** SystemAudioAdapter implemented as CATapDescription global Process Tap wrapped in aggregate device, with IOProc buffer delivery in 48 kHz / float32 / non-interleaved stereo and automatic rebind on default-output change; UpstreamCaptureAdapter extended with onBuffer; AudioPipeline wired with onSystemAudioBuffer/onMicBuffer; 8 new Tier-1 tests.
+**Verification:** PASS (iteration 2 — iteration 1 was false positive from parallel execution)
+**Commit:** (pending)
+**Files changed:** 5
+**Tests added:** 8
+**ADRs written:** none
+
+---
+
+## 2026-06-05 16:55 -- Verification failed: audio-engine-003 - System-audio capture
+
+**Type:** Work / Verification failure
+**Task:** audio-engine-003 - System-audio capture — Process Tap + aggregate device
+**Iteration:** 1 of 3
+**Reasons:** False positives from parallel execution — INDEX.md changes attributed to worker but made by orchestrator; Package.swift DriverIPC additions attributed to worker but made by infrastructure-008 worker (now committed at bb3e71a)
+**Iteration hint:** likely-fixable
+**Next:** re-dispatched worker (iteration 2)
+
+---
+
 ## 2026-06-05 16:55 -- Task verified and completed: infrastructure-008 - Driver IPC
 
 **Type:** Work / Task completion
 **Task:** infrastructure-008 - Driver IPC — Mach service, ring buffer, XPC server in Stimmgabel.driver
 **Summary:** Stimmgabel.driver exposes XPC server on com.innoq.stimmgabel.driver (Info.plist declared), backed by 4096-frame lock-free ring buffer; DoIOOperation drains ring buffer instead of emitting silence; StartIO/StopIO send setConsumerActive signals; 7 new Tier-1 ring buffer unit tests pass.
 **Verification:** PASS (iteration 1)
-**Commit:** (pending)
+**Commit:** bb3e71a
 **Files changed:** 8
 **Tests added:** 7
 **ADRs written:** 0011-driver-ipc-ring-buffer-design.md

@@ -1,3 +1,4 @@
+import AVFAudio
 import Foundation
 
 /// States of the audio pipeline from the perspective of consumers.
@@ -30,6 +31,20 @@ public final class AudioPipeline: @unchecked Sendable {
 
     /// Called on the serial state queue whenever `state` changes.
     public var stateDidChange: ((AudioPipelineState) -> Void)?
+
+    // MARK: - Buffer callbacks (mix stage, v1)
+
+    /// Called on each render cycle with the system-audio buffer (mix target format).
+    /// The handler may be called on any thread (the adapter's render thread).
+    public var onSystemAudioBuffer: ((AVAudioPCMBuffer) -> Void)? {
+        didSet { systemAudioAdapter.onBuffer = onSystemAudioBuffer }
+    }
+
+    /// Called on each render cycle with the mic buffer (mix target format).
+    /// The handler may be called on any thread (the adapter's render thread).
+    public var onMicBuffer: ((AVAudioPCMBuffer) -> Void)? {
+        didSet { micAdapter.onBuffer = onMicBuffer }
+    }
 
     // MARK: - Mute toggles (v1: mix-stage only)
 
