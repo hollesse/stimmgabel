@@ -5,6 +5,14 @@ Newest entries on top.
 
 ---
 
+## 2026-06-05 12:35 -- Batch started: [infrastructure-005]
+
+**Type:** Work / Batch start
+**Tasks:** infrastructure-005 - Decision — testing strategy
+**Parallel:** no (1 worker)
+
+---
+
 ## 2026-06-05 12:32 -- Task completed (verification skipped): infrastructure-004 - Decision — build & release tooling
 
 **Type:** Work / Task completion

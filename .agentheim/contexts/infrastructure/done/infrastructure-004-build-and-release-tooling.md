@@ -6,7 +6,7 @@ type: decision
 context: infrastructure
 created: 2026-06-05
 completed: 2026-06-05
-commit:
+commit: 060286b
 depends_on: [infrastructure-001]
 blocks: []
 tags: [foundation, build, release, spm, xcode]
