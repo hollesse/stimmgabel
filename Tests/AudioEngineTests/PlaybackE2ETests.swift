@@ -261,32 +261,19 @@ final class PlaybackE2ETests: XCTestCase {
         //   • De-interleaving (2ch→2×mono) → sample doubling   → chirp at half-speed
         //                                   → correlation drops
 
-        // Stage 1 — energy-based coarse latency estimate
-        let energyWindow = 4096
-        var coarseOffset = 0
-        var maxEnergy: Float = 0
-        var energyPos = 0
-        while energyPos + energyWindow <= captured.count {
-            let e = captured[energyPos..<(energyPos + energyWindow)].reduce(0 as Float) { $0 + $1 * $1 }
-            if e > maxEnergy { maxEnergy = e; coarseOffset = energyPos }
-            energyPos += energyWindow
-        }
-
-        // Stage 2 — fine search ±500 ms around coarse peak.
-        // Use a SHORT needle (0.25 s = 12000 samples) to keep the search fast
-        // while still being sensitive to frame-repetition time-stretch.
-        // At step=16, 60000-sample range × 12000-sample needle ≈ 45M ops ≈ <0.1 s.
+        // Search the FULL captured audio for the best alignment with the expected chirp.
+        // No coarse step — robust to variable latency and concurrent test interference.
+        // Short needle (0.25 s = 12000 samples) × step=32 over the full capture:
+        //   265000 / 32 × 12000 ≈ 100M float ops ≈ < 1 s.
         let needleLen = min(12_000, captured.count / 4)
         let needle    = Array(expectedMono.prefix(needleLen))
-        let fineRange = 24_000                                // ±500 ms
-        let low       = max(0, coarseOffset - fineRange)
-        let high      = min(captured.count - needleLen, coarseOffset + fineRange)
         var bestCorr: Float = 0
-        var fineOffset = low
-        while fineOffset <= high {
-            let c = correlation(needle, Array(captured[fineOffset..<(fineOffset + needleLen)]))
-            if c > bestCorr { bestCorr = c }
-            fineOffset += 16   // step=16: fast; chirp phase-period at 200 Hz >> 16 samples
+        var coarseOffset = 0   // track position of best correlation (for latency log)
+        var searchPos = 0
+        while searchPos + needleLen <= captured.count {
+            let c = correlation(needle, Array(captured[searchPos..<(searchPos + needleLen)]))
+            if c > bestCorr { bestCorr = c; coarseOffset = searchPos }
+            searchPos += 32
         }
 
         XCTAssertGreaterThan(bestCorr, 0.7,
