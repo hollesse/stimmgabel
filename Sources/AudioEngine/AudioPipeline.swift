@@ -72,8 +72,23 @@ public final class AudioPipeline: @unchecked Sendable {
     public func consumerAttached() {
         queue.sync {
             guard state == .idle else { return }
-            try? systemAudioAdapter.start()
-            try? micAdapter.start()
+
+            // Start both adapters in parallel — each contacts coreaudiod independently.
+            // Sequential startup adds their delays (sys ~1 s + mic ~2 s = ~3 s total).
+            // Parallel startup converges at max(~1 s, ~2 s) ≈ ~1 s.
+            let group = DispatchGroup()
+            group.enter()
+            DispatchQueue.global(qos: .userInitiated).async {
+                try? self.systemAudioAdapter.start()
+                group.leave()
+            }
+            group.enter()
+            DispatchQueue.global(qos: .userInitiated).async {
+                try? self.micAdapter.start()
+                group.leave()
+            }
+            group.wait()
+
             _sysName = systemAudioAdapter.deviceName
             _micName = micAdapter.deviceName
             state = .consumerAttached

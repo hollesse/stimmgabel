@@ -6,14 +6,13 @@ private let log = OSLog(subsystem: "com.innoq.stimmgabel", category: "MicAdapter
 
 /// Captures microphone audio using AVAudioEngine.
 ///
-/// Uses `AVAudioEngine.inputNode.installTap` instead of direct HAL APIs.
-/// This avoids the macOS 26 `AudioDeviceStart` ETIMEDOUT (0x3C) deadlock
-/// that occurs when the mic device is started concurrently with the system-audio
-/// Process Tap aggregate device.
+/// The engine is started eagerly in `init()` so the 2-second AVAudioEngine
+/// initialization cost is paid once at app launch, not on every consumer
+/// attach.  While no consumer is active the tap fires but callbacks are
+/// no-ops; once `start()` is called data flows to `onBuffer` immediately.
 ///
-/// AVAudioEngine handles TCC permission, device changes, and format conversion
-/// internally.  The tap delivers 48 kHz / float32 / non-interleaved stereo
-/// buffers matching the mix target format expected by AudioPipeline.
+/// The mic indicator in the macOS menu bar (orange dot) becomes visible when
+/// the app launches, which is expected for a "virtual microphone" application.
 public final class MicAdapter: UpstreamCaptureAdapter, @unchecked Sendable {
 
     // MARK: - UpstreamCaptureAdapter
@@ -25,7 +24,7 @@ public final class MicAdapter: UpstreamCaptureAdapter, @unchecked Sendable {
     // MARK: - Private
 
     private let engine = AVAudioEngine()
-    private let queue  = DispatchQueue(label: "com.innoq.stimmgabel.MicAdapter")
+    private let lock   = NSLock()
 
     private static let mixTargetFormat = AVAudioFormat(
         commonFormat: .pcmFormatFloat32,
@@ -34,44 +33,60 @@ public final class MicAdapter: UpstreamCaptureAdapter, @unchecked Sendable {
         interleaved: false
     )!
 
-    public init() {}
-    deinit { if isRunning { stop() } }
+    // MARK: - Init
+
+    public init() {
+        // Install the tap immediately so the engine graph is configured.
+        engine.inputNode.installTap(
+            onBus: 0,
+            bufferSize: 512,
+            format: MicAdapter.mixTargetFormat
+        ) { [weak self] buffer, _ in
+            guard let self else { return }
+            self.lock.lock()
+            let running = self.isRunning
+            let handler = self.onBuffer
+            self.lock.unlock()
+            guard running, let handler else { return }
+            handler(buffer)
+        }
+
+        // Pre-start: pays the 2-second coreaudiod init cost at app launch.
+        // Errors (e.g. permission not yet granted) are ignored here — the
+        // engine will be started again in start() once permission is granted.
+        if (try? engine.start()) != nil {
+            deviceName = Self.readDefaultInputDeviceName()
+            os_log(.info, log: log, "MicAdapter pre-started (device: %{public}@)", deviceName)
+        }
+    }
+
+    deinit {
+        engine.inputNode.removeTap(onBus: 0)
+        engine.stop()
+    }
 
     // MARK: - UpstreamCaptureAdapter
 
     public func start() throws {
-        try queue.sync {
-            guard !isRunning else { return }
-            let inputNode = engine.inputNode
+        lock.lock(); defer { lock.unlock() }
+        guard !isRunning else { return }
 
-            // installTap with the mix target format: CoreAudio performs any necessary
-            // sample-rate conversion and channel expansion (mono→stereo) internally.
-            inputNode.installTap(
-                onBus: 0,
-                bufferSize: 512,
-                format: MicAdapter.mixTargetFormat
-            ) { [weak self] buffer, _ in
-                guard let self, let handler = self.onBuffer else { return }
-                handler(buffer)
-            }
-
+        // Start or restart the engine if it stopped (e.g. interrupted by permission dialog).
+        if !engine.isRunning {
             try engine.start()
-
             deviceName = Self.readDefaultInputDeviceName()
-            isRunning  = true
-            os_log(.info, log: log, "MicAdapter started via AVAudioEngine (device: %{public}@)", deviceName)
+            os_log(.info, log: log, "MicAdapter engine started (device: %{public}@)", deviceName)
         }
+
+        isRunning = true
+        os_log(.info, log: log, "MicAdapter active")
     }
 
     public func stop() {
-        queue.sync {
-            guard isRunning else { return }
-            engine.inputNode.removeTap(onBus: 0)
-            engine.stop()
-            isRunning  = false
-            deviceName = ""
-            os_log(.info, log: log, "MicAdapter stopped")
-        }
+        lock.lock(); defer { lock.unlock() }
+        guard isRunning else { return }
+        isRunning = false
+        os_log(.info, log: log, "MicAdapter inactive (engine keeps running)")
     }
 
     // MARK: - Helpers
