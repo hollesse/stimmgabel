@@ -5,6 +5,164 @@ Newest entries on top.
 
 ---
 
+## 2026-06-05 23:15 -- Work session ended
+
+**Type:** Work / Session end
+**Completed:** 1 (first-try PASS: 0, re-dispatched: 1 [infrastructure-009 — verifier iteration 1 caught missing HEADER_SEARCH_PATHS in pbxproj, orchestrator fixed, iteration 2 passed], skipped: 0)
+**Bounced:** 0
+**Failed:** 0
+**Escalated after verification:** 0
+**Commits:** 1 (073c233 infrastructure-009)
+
+---
+
+## 2026-06-05 23:10 -- Task verified and completed: infrastructure-009 - Driver IPC macOS 26 fix
+
+**Type:** Work / Task completion
+**Task:** infrastructure-009 - Driver IPC — replace XPC with POSIX SHM + Darwin notify (macOS 26 fix)
+**Summary:** Replaced broken XPC Mach service IPC (macOS 26 Remote Driver Service sandbox) with POSIX SHM ring buffer + Darwin notify signals; SGSharedAudio.h defines shared layout; SHMDriverIPCConnection replaces XPCDriverIPCConnection; 66 tests pass.
+**Verification:** PASS (iteration 2 — iteration 1 caught missing HEADER_SEARCH_PATHS in pbxproj)
+**Commit:** 073c233
+**Files changed:** 11
+**Tests added:** 0
+**ADRs written:** 0012-driver-ipc-macos26-shm-notifications.md
+
+---
+
+## 2026-06-05 22:30 -- Batch started: [infrastructure-009]
+
+**Type:** Work / Batch start
+**Tasks:** infrastructure-009 - Driver IPC — replace XPC with POSIX SHM + Darwin notify (macOS 26 fix)
+**Parallel:** no (1 worker)
+
+---
+
+## 2026-06-05 19:20 -- Work session ended
+
+**Type:** Work / Session end
+**Completed:** 2 (first-try PASS: 2 [menubar-ui-002, menubar-ui-003], re-dispatched: 0, skipped: 0)
+**Bounced:** 0
+**Failed:** 0
+**Escalated after verification:** 0
+**Commits:** 2 (fcfadaa menubar-ui-002, 52707e2 menubar-ui-003)
+
+---
+
+## 2026-06-05 19:15 -- Task verified and completed: menubar-ui-003 - Status indicator
+
+**Type:** Work / Task completion
+**Task:** menubar-ui-003 - Status indicator — consumer attached state and current device names in the dropdown
+**Summary:** Status section added to the MenuBarView dropdown showing consumer state ("● Active" / "○ Idle — no app reading") and current device names. AudioPipeline now exposes consumerActive, currentMicDeviceName, currentSystemAudioDeviceName sourced from adapter-level CoreAudio property reads; AppViewModel proxies these for SwiftUI.
+**Verification:** PASS (iteration 1)
+**Commit:** 52707e2
+**Files changed:** 10
+**Tests added:** 6
+**ADRs written:** none
+
+---
+
+## 2026-06-05 18:55 -- Batch started: [menubar-ui-003]
+
+**Type:** Work / Batch start
+**Tasks:** menubar-ui-003 - Status indicator — consumer attached state and current device names in the dropdown
+**Parallel:** no (1 worker)
+
+---
+
+## 2026-06-05 18:50 -- Task verified and completed: menubar-ui-002 - Mute toggles
+
+**Type:** Work / Task completion
+**Task:** menubar-ui-002 - Mute toggles — wire mic-side and system-audio-side mute to AudioPipeline, persist via UserDefaults
+**Summary:** Implemented mute toggles wired to AudioPipeline with UserDefaults persistence via MutePreferences, AppViewModel, and updated MenuBarView/StimmgabelApp — mute state survives restarts and the menu-bar icon reflects idle/active/muted states using SF Symbols.
+**Verification:** PASS (iteration 1)
+**Commit:** fcfadaa
+**Files changed:** 11
+**Tests added:** 19
+**ADRs written:** none
+
+---
+
+## 2026-06-05 18:30 -- Batch started: [menubar-ui-002]
+
+**Type:** Work / Batch start
+**Tasks:** menubar-ui-002 - Mute toggles — wire mic-side and system-audio-side mute to AudioPipeline, persist via UserDefaults
+**Parallel:** no (1 worker)
+
+---
+
+## 2026-06-05 18:25 -- Work session ended
+
+**Type:** Work / Session end
+**Completed:** 1 (first-try PASS: 1 [audio-engine-006], re-dispatched: 0, skipped: 0)
+**Bounced:** 0
+**Failed:** 0
+**Escalated after verification:** 0
+**Commits:** 1 (933eeae audio-engine-006)
+
+---
+
+## 2026-06-05 18:20 -- Task verified and completed: audio-engine-006 - Output adapter
+
+**Type:** Work / Task completion
+**Task:** audio-engine-006 - Output adapter — XPC client that writes mix frames into the driver ring buffer and handles lazy activation
+**Summary:** Implemented `DriverOutputAdapter` — XPC client to `com.innoq.stimmgabel.driver`, 512-frame render timer pushing `pipeline.mix()` as raw float32 to driver ring buffer, `setConsumerActive` → `consumerAttached()`/`consumerDetached()` lazy activation; `DriverIPCConnection` protocol seam enables 7 new Tier-1 tests with fake XPC stub.
+**Verification:** PASS (iteration 1)
+**Commit:** 933eeae
+**Files changed:** 4
+**Tests added:** 7
+**ADRs written:** none
+
+---
+
+## 2026-06-05 18:00 -- Batch started: [audio-engine-006]
+
+**Type:** Work / Batch start
+**Tasks:** audio-engine-006 - Output adapter — XPC client that writes mix frames into the driver ring buffer and handles lazy activation
+**Parallel:** no (1 worker)
+
+---
+
+## 2026-06-05 17:55 -- Work session ended
+
+**Type:** Work / Session end
+**Completed:** 1 (first-try PASS: 1 [audio-engine-005], re-dispatched: 0, skipped: 0)
+**Bounced:** 0
+**Failed:** 0
+**Escalated after verification:** 0
+**Commits:** 1 (7468c6d audio-engine-005)
+
+---
+
+## 2026-06-05 17:50 -- Task verified and completed: audio-engine-005 - Mix
+
+**Type:** Work / Task completion
+**Task:** audio-engine-005 - Mix — combine mic side and system-audio side into a single float32 stereo buffer
+**Summary:** Introduced `Mixer` with per-side `StagingBuffer` objects (os_unfair_lock-protected), wired both upstream adapter `onBuffer` deliveries into the mixer in `AudioPipeline.init`, and exposed `AudioPipeline.mix(frameCount:) -> [Float]` as the driver-cadence entry point; muted sides contribute zero, absent sides are treated as silence, and per-side gain slots are preserved for v2 faders.
+**Verification:** PASS (iteration 1)
+**Commit:** 7468c6d
+**Files changed:** 5
+**Tests added:** 5
+**ADRs written:** none
+
+---
+
+## 2026-06-05 17:35 -- Batch started: [audio-engine-005]
+
+**Type:** Work / Batch start
+**Tasks:** audio-engine-005 - Mix — combine mic side and system-audio side into a single float32 stereo buffer
+**Parallel:** no (1 worker)
+
+---
+
+## 2026-06-05 17:30 -- Model / Promoted: audio-engine-005 - Mix
+
+**Type:** Model / Promote
+**BC:** audio-engine
+**From → To:** backlog → todo
+**Notes:** Dependencies audio-engine-003 (Process Tap) and audio-engine-004 (MicAdapter) both done in previous work session; task fully specified with Tier-1 acceptance criteria.
+
+---
+
 ## 2026-06-05 17:25 -- Work session ended
 
 **Type:** Work / Session end

@@ -30,12 +30,11 @@ final class FakeDriverIPCConnection: DriverIPCConnection, @unchecked Sendable {
 
 final class DriverOutputAdapterTests: XCTestCase {
 
-    // Helper: build a pipeline with fake adapters.
-    private func makePipeline() -> (pipeline: AudioPipeline, mic: FakeUpstreamCaptureAdapter, sysAudio: FakeUpstreamCaptureAdapter) {
-        let mic = FakeUpstreamCaptureAdapter()
+    // Helper: build a pipeline with a fake system-audio adapter.
+    private func makePipeline() -> (pipeline: AudioPipeline, sysAudio: FakeUpstreamCaptureAdapter) {
         let sysAudio = FakeUpstreamCaptureAdapter()
-        let pipeline = AudioPipeline(micAdapter: mic, systemAudioAdapter: sysAudio)
-        return (pipeline, mic, sysAudio)
+        let pipeline = AudioPipeline(systemAudioAdapter: sysAudio)
+        return (pipeline, sysAudio)
     }
 
     /// Synchronously drain the adapter's internal queue via a barrier block so that
@@ -47,7 +46,7 @@ final class DriverOutputAdapterTests: XCTestCase {
     // MARK: - AC: setConsumerActive(true) → consumerAttached() / adapters start
 
     func test_consumerActive_true_callsConsumerAttachedOnPipeline() {
-        let (pipeline, mic, sysAudio) = makePipeline()
+        let (pipeline, sysAudio) = makePipeline()
         let fakeIPC = FakeDriverIPCConnection()
         let adapter = DriverOutputAdapter(pipeline: pipeline, ipc: fakeIPC)
 
@@ -55,14 +54,13 @@ final class DriverOutputAdapterTests: XCTestCase {
         drainAdapterQueue(adapter)
 
         XCTAssertEqual(pipeline.state, .consumerAttached)
-        XCTAssertTrue(mic.isRunning)
         XCTAssertTrue(sysAudio.isRunning)
     }
 
     // MARK: - AC: setConsumerActive(false) → consumerDetached() / adapters stop
 
     func test_consumerActive_false_afterTrue_callsConsumerDetached() {
-        let (pipeline, mic, sysAudio) = makePipeline()
+        let (pipeline, sysAudio) = makePipeline()
         let fakeIPC = FakeDriverIPCConnection()
         let adapter = DriverOutputAdapter(pipeline: pipeline, ipc: fakeIPC)
 
@@ -73,14 +71,13 @@ final class DriverOutputAdapterTests: XCTestCase {
         drainAdapterQueue(adapter)
 
         XCTAssertEqual(pipeline.state, .idle)
-        XCTAssertFalse(mic.isRunning)
         XCTAssertFalse(sysAudio.isRunning)
     }
 
     // MARK: - AC: duplicate signals are idempotent
 
     func test_consumerActive_trueAgain_isIdempotent() {
-        let (pipeline, mic, sysAudio) = makePipeline()
+        let (pipeline, sysAudio) = makePipeline()
         let fakeIPC = FakeDriverIPCConnection()
         let adapter = DriverOutputAdapter(pipeline: pipeline, ipc: fakeIPC)
 
@@ -89,13 +86,12 @@ final class DriverOutputAdapterTests: XCTestCase {
         drainAdapterQueue(adapter)
 
         // Adapters started exactly once despite two signals.
-        XCTAssertEqual(mic.startCallCount, 1)
         XCTAssertEqual(sysAudio.startCallCount, 1)
         _ = pipeline // keep alive
     }
 
     func test_consumerActive_falseAgain_isIdempotent() {
-        let (pipeline, _, _) = makePipeline()
+        let (pipeline, _) = makePipeline()
         let fakeIPC = FakeDriverIPCConnection()
         let adapter = DriverOutputAdapter(pipeline: pipeline, ipc: fakeIPC)
 
@@ -106,75 +102,73 @@ final class DriverOutputAdapterTests: XCTestCase {
         XCTAssertEqual(pipeline.state, .idle)
     }
 
-    // MARK: - AC: render timer produces writeSamples calls
+    // MARK: - AC: emitBuffer while active produces writeSamples calls (IOProc-driven model)
 
-    func test_consumerActive_true_producesWriteSamplesCalls() {
-        let (pipeline, _, _) = makePipeline()
+    func test_consumerActive_true_emitBuffer_producesWriteSamplesCall() {
+        let (pipeline, sysAudio) = makePipeline()
         let fakeIPC = FakeDriverIPCConnection()
         let adapter = DriverOutputAdapter(pipeline: pipeline, ipc: fakeIPC)
 
         fakeIPC.simulateConsumerActive(true)
         drainAdapterQueue(adapter)
 
-        // Wait long enough for at least 2 render ticks (each ~10.67 ms → wait 100 ms).
-        Thread.sleep(forTimeInterval: 0.1)
-        drainAdapterQueue(adapter)
+        sysAudio.emitBuffer(makeStereoBuffer(frameCount: 512, value: 0.5))
 
-        XCTAssertGreaterThan(fakeIPC.writeSamplesCalls.count, 0, "writeSamples should be called while consumer is active")
+        XCTAssertGreaterThan(fakeIPC.writeSamplesCalls.count, 0,
+            "writeSamples should be called immediately when system audio buffer arrives")
     }
 
-    func test_consumerActive_false_stopsWriteSamplesCalls() {
-        let (pipeline, _, _) = makePipeline()
+    func test_consumerActive_false_emitBuffer_doesNotWriteSamples() {
+        let (pipeline, sysAudio) = makePipeline()
         let fakeIPC = FakeDriverIPCConnection()
         let adapter = DriverOutputAdapter(pipeline: pipeline, ipc: fakeIPC)
 
+        // Active then inactive.
         fakeIPC.simulateConsumerActive(true)
         drainAdapterQueue(adapter)
-
-        // Wait for some ticks.
-        Thread.sleep(forTimeInterval: 0.1)
-        drainAdapterQueue(adapter)
-
-        let countBefore = fakeIPC.writeSamplesCalls.count
-        XCTAssertGreaterThan(countBefore, 0)
-
         fakeIPC.simulateConsumerActive(false)
         drainAdapterQueue(adapter)
 
-        // Let any in-flight ticks drain.
-        Thread.sleep(forTimeInterval: 0.05)
-        drainAdapterQueue(adapter)
+        let countAtStop = fakeIPC.writeSamplesCalls.count
 
-        let countAfterStop = fakeIPC.writeSamplesCalls.count
+        // Emit after consumer detached — must not trigger another write.
+        sysAudio.emitBuffer(makeStereoBuffer(frameCount: 512, value: 0.9))
 
-        // No more ticks should fire — wait another interval.
-        Thread.sleep(forTimeInterval: 0.05)
-        drainAdapterQueue(adapter)
-
-        XCTAssertEqual(fakeIPC.writeSamplesCalls.count, countAfterStop, "timer must have stopped after consumer detached")
+        XCTAssertEqual(fakeIPC.writeSamplesCalls.count, countAtStop,
+            "writeSamples must not be called after consumer detaches")
+        _ = adapter
     }
 
     // MARK: - AC: writeSamples payload has correct frame count
 
-    func test_writeSamples_frameCountMatchesRenderPeriod() {
-        let (pipeline, _, _) = makePipeline()
+    func test_writeSamples_frameCountMatchesBufferFrameLength() {
+        let (pipeline, sysAudio) = makePipeline()
         let fakeIPC = FakeDriverIPCConnection()
         let adapter = DriverOutputAdapter(pipeline: pipeline, ipc: fakeIPC)
 
         fakeIPC.simulateConsumerActive(true)
         drainAdapterQueue(adapter)
 
-        Thread.sleep(forTimeInterval: 0.1)
-        drainAdapterQueue(adapter)
+        let frames = 512
+        sysAudio.emitBuffer(makeStereoBuffer(frameCount: frames, value: 0.3))
 
         guard let first = fakeIPC.writeSamplesCalls.first else {
-            XCTFail("Expected at least one writeSamples call")
-            return
+            XCTFail("Expected a writeSamples call after emitBuffer"); return
         }
-
-        XCTAssertEqual(first.frameCount, UInt32(DriverOutputAdapter.renderFrameCount))
-        // interleaved stereo: frameCount * 2 channels * 4 bytes/sample
-        let expectedBytes = DriverOutputAdapter.renderFrameCount * 2 * MemoryLayout<Float>.size
+        XCTAssertEqual(first.frameCount, UInt32(frames))
+        let expectedBytes = frames * 2 * MemoryLayout<Float>.size
         XCTAssertEqual(first.data.count, expectedBytes)
+        _ = adapter
+    }
+
+    private func makeStereoBuffer(frameCount: Int, value: Float) -> AVAudioPCMBuffer {
+        let fmt = AVAudioFormat(commonFormat: .pcmFormatFloat32,
+                                sampleRate: 48_000, channels: 2, interleaved: false)!
+        let buf = AVAudioPCMBuffer(pcmFormat: fmt, frameCapacity: AVAudioFrameCount(frameCount))!
+        buf.frameLength = AVAudioFrameCount(frameCount)
+        if let ch0 = buf.floatChannelData?[0], let ch1 = buf.floatChannelData?[1] {
+            for i in 0..<frameCount { ch0[i] = value; ch1[i] = value }
+        }
+        return buf
     }
 }

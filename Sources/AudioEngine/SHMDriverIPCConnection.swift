@@ -59,8 +59,13 @@ public final class SHMDriverIPCConnection: DriverIPCConnection, @unchecked Senda
         if shmFd >= 0 {
             close(shmFd)
         }
-        // The app is the owner of the SHM segment; unlink on teardown.
-        sg_shm_unlink(kSHMName)
+        // Do NOT unlink the SHM segment here. The driver helper process keeps
+        // its mmap alive across app restarts (it only re-runs Initialize after a
+        // full coreaudiod restart). If we unlink the name, the next app instance
+        // creates a brand-new segment that the driver can never see, causing
+        // permanent silence until the entire driver helper is restarted.
+        // The segment is intentionally left in the namespace so the next app
+        // instance can open the same physical pages the driver is already mapped to.
     }
 
     // MARK: - Connect
@@ -84,16 +89,38 @@ public final class SHMDriverIPCConnection: DriverIPCConnection, @unchecked Senda
     // MARK: - Private: SHM
 
     private func openSHM() {
-        let fd = sg_shm_open(kSHMName, O_CREAT | O_RDWR, 0o666)
+        var fd = sg_shm_open(kSHMName, O_CREAT | O_RDWR, 0o666)
         if fd < 0 {
             log.error("shm_open(\(kSHMName, privacy: .public)) failed: errno=\(errno, privacy: .public)")
             return
         }
 
         if ftruncate(fd, off_t(kSHMSize)) < 0 {
-            log.error("ftruncate(\(kSHMSize, privacy: .public)) failed: errno=\(errno, privacy: .public)")
-            close(fd)
-            return
+            // ftruncate fails with EINVAL when the segment already exists and is
+            // currently mmap'd by the driver — the kernel rejects resizing a live
+            // mapping. Check whether the existing segment is already the right size.
+            var info = stat()
+            let alreadySized = (fstat(fd, &info) == 0) && (info.st_size == off_t(kSHMSize))
+            if alreadySized {
+                // The driver is still mapped to this exact segment. Reuse it so
+                // the driver and the new app session share the same physical pages.
+                log.info("SHM already the right size; reusing existing segment (driver keeps its mapping)")
+            } else {
+                // Wrong size — truly stale. Unlink and recreate from scratch.
+                log.info("ftruncate failed (errno=\(errno, privacy: .public)) and size mismatch; recreating SHM")
+                close(fd)
+                sg_shm_unlink(kSHMName)
+                fd = sg_shm_open(kSHMName, O_CREAT | O_RDWR, 0o666)
+                if fd < 0 {
+                    log.error("shm_open after unlink failed: errno=\(errno, privacy: .public)")
+                    return
+                }
+                if ftruncate(fd, off_t(kSHMSize)) < 0 {
+                    log.error("ftruncate after recreate failed: errno=\(errno, privacy: .public)")
+                    close(fd)
+                    return
+                }
+            }
         }
 
         let mapped = mmap(nil, kSHMSize, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0)
@@ -103,7 +130,11 @@ public final class SHMDriverIPCConnection: DriverIPCConnection, @unchecked Senda
             return
         }
 
-        // Zero-initialise on first open so the driver sees a clean buffer.
+        // Zero-initialise so writePos/readPos reset to 0 for this session. The
+        // driver will deliver silence until the first audio frame is written, which
+        // is correct. When reusing an existing segment both the app's new mmap and
+        // the driver's existing mmap point to the same physical pages, so the
+        // driver immediately sees the reset and the subsequent audio writes.
         mapped!.initializeMemory(as: UInt8.self, repeating: 0, count: kSHMSize)
 
         shmFd  = fd

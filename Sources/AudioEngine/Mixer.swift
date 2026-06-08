@@ -1,20 +1,17 @@
 import AVFAudio
 import Foundation
 
-/// A per-side staging buffer that accepts `AVAudioPCMBuffer` deliveries from an adapter
-/// thread and exposes a drain method safe to call from a different (driver) thread.
+/// Thread-safe FIFO of interleaved float32 stereo samples.
 ///
-/// Thread safety: a simple `os_unfair_lock` guards the stored samples. The lock is held
-/// only briefly during copy-in and copy-out, never across an audio-processing loop.
+/// The adapter thread appends via `store()`.  The render thread consumes via `drain(frameCount:)`.
+/// Both sides access the internal buffer under a lock held only for the copy — never across
+/// audio-processing loops.
 final class StagingBuffer: @unchecked Sendable {
 
-    private var lock = os_unfair_lock()
-    private var samples: [Float] = []
+    private var lock    = os_unfair_lock()
+    private var samples = [Float]()          // interleaved L,R,L,R,...
 
-    /// Replace the stored samples with a copy of the non-interleaved buffer's data,
-    /// interleaved as [ch0[0], ch1[0], ch0[1], ch1[1], ...].
-    ///
-    /// Only float32, non-interleaved stereo buffers are accepted (mix target format).
+    /// Append all frames from a non-interleaved float32 stereo buffer.
     func store(_ buffer: AVAudioPCMBuffer) {
         guard
             buffer.format.commonFormat == .pcmFormatFloat32,
@@ -24,112 +21,65 @@ final class StagingBuffer: @unchecked Sendable {
             let data = buffer.floatChannelData
         else { return }
 
-        let frameCount = Int(buffer.frameLength)
-        var interleaved = [Float](repeating: 0, count: frameCount * 2)
+        let n   = Int(buffer.frameLength)
         let ch0 = data[0]
         let ch1 = data[1]
-        for i in 0..<frameCount {
+        var interleaved = [Float](repeating: 0, count: n * 2)
+        for i in 0..<n {
             interleaved[i * 2]     = ch0[i]
             interleaved[i * 2 + 1] = ch1[i]
         }
 
         os_unfair_lock_lock(&lock)
-        samples = interleaved
+        samples.append(contentsOf: interleaved)
+        // Cap backlog at 4096 stereo frames (85 ms) to prevent unbounded growth.
+        let maxSamples = 4096 * 2
+        if samples.count > maxSamples {
+            samples.removeFirst(samples.count - maxSamples)
+        }
         os_unfair_lock_unlock(&lock)
     }
 
-    /// Return a copy of the stored samples (already interleaved).
-    /// Returns `nil` if no buffer has been stored yet (adapter hasn't produced one).
-    func drain() -> [Float]? {
+    /// Consume up to `frameCount` frames from the front of the FIFO.
+    /// Returns `frameCount * 2` interleaved samples; zero-pads if fewer are available.
+    func drain(frameCount: Int) -> [Float] {
+        let needed = frameCount * 2
         os_unfair_lock_lock(&lock)
-        let copy = samples.isEmpty ? nil : samples
+        let available = min(needed, samples.count)
+        let result    = Array(samples.prefix(available))
+        if available > 0 { samples.removeFirst(available) }
         os_unfair_lock_unlock(&lock)
-        return copy
+
+        if result.count == needed { return result }
+        var padded = result
+        padded.append(contentsOf: [Float](repeating: 0, count: needed - result.count))
+        return padded
+    }
+
+    /// Whether there are any samples currently buffered.
+    var isEmpty: Bool {
+        os_unfair_lock_lock(&lock)
+        defer { os_unfair_lock_unlock(&lock) }
+        return samples.isEmpty
     }
 }
 
-/// Combines the mic and system-audio sides into a single interleaved float32 stereo buffer.
+/// Passes system audio from its staging buffer to the render thread.
 ///
-/// The mix step (ADR 0010):
-/// - Accepts asynchronous buffer deliveries from both upstream adapters via `receiveMic` /
-///   `receiveSysAudio`. These may be called on any thread (the adapter's render thread).
-/// - Produces a mixed buffer on demand via `mix(frameCount:micMuted:systemAudioMuted:)`,
-///   which is driven by the output adapter's render thread.
-/// - Applies per-side mute as multiply-by-zero (v1). A v1 gain slot is kept in the add
-///   path (`micGain * mic[i] + sysaudioGain * sysaudio[i]`) so v2 can wire gain values
-///   without restructuring.
-/// - Treats a missing side (no buffer delivered yet) as silence.
+/// Phase 1: system audio only — no mic, no mute.
 public final class Mixer: @unchecked Sendable {
 
-    // MARK: Staging buffers
-
-    private let micStaging = StagingBuffer()
-    private let sysAudioStaging = StagingBuffer()
-
-    // MARK: Gain slots (v1: both 1.0; v2 upgrade point)
-
-    /// Per-side gain applied at the mix stage. Default 1.0 (unity).
-    public var micGain: Float = 1.0
-    public var sysAudioGain: Float = 1.0
-
-    // MARK: Lifecycle
+    private let staging = StagingBuffer()
 
     public init() {}
 
-    // MARK: Receiving
-
-    /// Called by the mic adapter on each render cycle.
-    public func receiveMic(_ buffer: AVAudioPCMBuffer) {
-        micStaging.store(buffer)
-    }
-
-    /// Called by the system-audio adapter on each render cycle.
     public func receiveSysAudio(_ buffer: AVAudioPCMBuffer) {
-        sysAudioStaging.store(buffer)
+        staging.store(buffer)
     }
 
-    // MARK: Producing
-
-    /// Drain both staging buffers and produce a mixed output.
-    ///
-    /// - Parameters:
-    ///   - frameCount: Number of stereo frames to produce.
-    ///   - micMuted: If `true`, the mic contribution is treated as zero.
-    ///   - systemAudioMuted: If `true`, the system-audio contribution is treated as zero.
-    /// - Returns: An interleaved float32 array of `frameCount * 2` samples (L, R, L, R, …).
-    ///   Each sample position: `output[i] = micGain * mic[i] + sysAudioGain * sysaudio[i]`
-    ///   where muted sides contribute 0.
-    public func mix(
-        frameCount: Int,
-        micMuted: Bool,
-        systemAudioMuted: Bool
-    ) -> [Float] {
-        let sampleCount = frameCount * 2
-        let micSamples = micStaging.drain()
-        let sysAudioSamples = sysAudioStaging.drain()
-
-        var output = [Float](repeating: 0, count: sampleCount)
-        for i in 0..<sampleCount {
-            let micSample: Float
-            if micMuted {
-                micSample = 0
-            } else if let m = micSamples, i < m.count {
-                micSample = micGain * m[i]
-            } else {
-                micSample = 0
-            }
-
-            let sysAudioSample: Float
-            if systemAudioMuted {
-                sysAudioSample = 0
-            } else if let s = sysAudioSamples, i < s.count {
-                sysAudioSample = sysAudioGain * s[i]
-            } else {
-                sysAudioSample = 0
-            }
-
-            output[i] = micSample + sysAudioSample
-        }
-        return output
+    /// Drain `frameCount` frames from the staging FIFO.
+    /// Returns `frameCount * 2` interleaved float32 samples; zeros if no data available.
+    public func mix(frameCount: Int) -> [Float] {
+        staging.drain(frameCount: frameCount)
     }
 }

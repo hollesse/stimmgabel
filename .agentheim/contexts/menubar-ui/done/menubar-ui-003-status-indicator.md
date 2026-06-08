@@ -6,7 +6,7 @@ type: feature
 context: menubar-ui
 created: 2026-06-05
 completed: 2026-06-05
-commit:
+commit: 52707e2
 depends_on: [audio-engine-006]
 blocks: []
 tags: [status, consumer, device-name, swiftui, menubar, ui]

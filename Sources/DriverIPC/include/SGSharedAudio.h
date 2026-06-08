@@ -30,3 +30,15 @@ typedef struct {
     _Atomic(uint64_t) readPos;
     float             samples[SG_SHM_CAPACITY * 2];
 } SHMAudioBuffer;
+
+// C helper accessors for the samples array.
+// Swift cannot import fixed-size C arrays directly, so these functions
+// provide typed read/write access for tests and cross-language code.
+static inline float  sg_shm_read_sample(const SHMAudioBuffer *buf, uint32_t idx)
+    { return buf->samples[idx]; }
+static inline void   sg_shm_write_sample(SHMAudioBuffer *buf, uint32_t idx, float v)
+    { buf->samples[idx] = v; }
+static inline uint64_t sg_shm_get_write_pos(const SHMAudioBuffer *buf)
+    { return atomic_load_explicit(&buf->writePos, memory_order_acquire); }
+static inline void sg_shm_set_write_pos(SHMAudioBuffer *buf, uint64_t pos)
+    { atomic_store_explicit(&buf->writePos, pos, memory_order_release); }

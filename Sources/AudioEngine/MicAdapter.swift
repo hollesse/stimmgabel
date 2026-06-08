@@ -6,6 +6,15 @@ import os.log
 
 private let log = OSLog(subsystem: "com.innoq.stimmgabel", category: "MicAdapter")
 
+/// Context threaded through the C-callback user-data pointer in `convertBuffer`.
+/// Plain value type; safe to take an unsafe pointer to it on the stack.
+private struct ConverterInputContext {
+    var inputABL: UnsafePointer<AudioBufferList>
+    var bytesPerFrame: UInt32   // source bytes per frame (nativeFormat.mBytesPerFrame)
+    var totalFrames: UInt32     // total input frames available this IOProc call
+    var consumed: UInt32        // frames already handed to the converter
+}
+
 /// Captures the macOS default microphone via the CoreAudio HAL (ADR 0006).
 ///
 /// Resolves `kAudioHardwarePropertyDefaultInputDevice` at `start()`, registers an IOProc
@@ -265,13 +274,18 @@ public final class MicAdapter: UpstreamCaptureAdapter, @unchecked Sendable {
     private func buildConverterIfNeeded() throws {
         guard var src = nativeFormat else { return }
         var dst = MicAdapter.mixTargetASBD
-        let needsConversion =
+
+        // Only use AudioConverter for real PCM re-encoding: different sample rate, channel
+        // count, or bit depth. Differences in format flags (interleaved vs. non-interleaved,
+        // packed vs. unpacked) are handled manually in copyBuffer — AudioConverter is
+        // unreliable for that case because macOS reports inconsistent mBytesPerFrame values
+        // for non-interleaved USB devices, causing packet-count mismatches in the input proc.
+        let needsHardwareConversion =
             src.mSampleRate != dst.mSampleRate ||
             src.mChannelsPerFrame != dst.mChannelsPerFrame ||
-            src.mFormatFlags != dst.mFormatFlags ||
             src.mBitsPerChannel != dst.mBitsPerChannel
 
-        guard needsConversion else {
+        guard needsHardwareConversion else {
             converter = nil
             return
         }
@@ -281,8 +295,6 @@ public final class MicAdapter: UpstreamCaptureAdapter, @unchecked Sendable {
         guard status == noErr, let cvt else {
             os_log(.error, log: log,
                    "AudioConverterNew failed: OSStatus %d", status)
-            // Non-fatal: deliver raw buffers without conversion. The pipeline will receive
-            // off-format data; a follow-up task can improve error handling.
             converter = nil
             return
         }
@@ -317,38 +329,85 @@ public final class MicAdapter: UpstreamCaptureAdapter, @unchecked Sendable {
             self.ioProcID = nil
             throw MicAdapterError.ioProcRegistrationFailed(status: startStatus)
         }
+        _ioProcCallCount = 0
+        os_log(.info, log: log, "AudioDeviceStart OK on device %d — waiting for IOProc callbacks", deviceID)
     }
 
     // MARK: - IOProc callback
+
+    private var _ioProcCallCount: Int = 0
 
     private func handleIOProc(
         inputData: UnsafePointer<AudioBufferList>,
         inputTime: UnsafePointer<AudioTimeStamp>
     ) {
-        guard let handler = onBuffer else { return }
+        _ioProcCallCount += 1
+
+        guard let handler = onBuffer else {
+            if _ioProcCallCount == 1 {
+                os_log(.error, log: log, "IOProc fired but onBuffer is nil — audio will not reach pipeline")
+            }
+            return
+        }
 
         let abl = inputData.pointee
-        guard abl.mNumberBuffers > 0 else { return }
+        guard abl.mNumberBuffers > 0 else {
+            if _ioProcCallCount <= 3 {
+                os_log(.error, log: log, "IOProc: mNumberBuffers=0, no audio delivered")
+            }
+            return
+        }
 
         let firstBuffer = withUnsafePointer(to: abl.mBuffers) { $0.pointee }
-        let bytesPerSample = UInt32(MemoryLayout<Float32>.size)
-        let frameCount = firstBuffer.mDataByteSize / bytesPerSample
+        // Frame count depends on the delivery layout:
+        //  • Non-interleaved (mNumberBuffers > 1 or kAudioFormatFlagIsNonInterleaved):
+        //    each buffer holds one channel → frameCount = mDataByteSize / sizeof(Float32)
+        //  • Interleaved (mNumberBuffers == 1, no non-interleaved flag):
+        //    one buffer holds all channels → frameCount = mDataByteSize / (channels × 4)
+        let bytesPerSample = UInt32(MemoryLayout<Float32>.size)  // 4
+        let isNonInterleaved: Bool
+        if abl.mNumberBuffers > 1 {
+            isNonInterleaved = true
+        } else if let flags = nativeFormat?.mFormatFlags {
+            isNonInterleaved = flags & kAudioFormatFlagIsNonInterleaved != 0
+        } else {
+            isNonInterleaved = false
+        }
+        let channels = max(nativeFormat?.mChannelsPerFrame ?? 1, 1)
+        let frameCount: UInt32
+        if isNonInterleaved {
+            frameCount = firstBuffer.mDataByteSize / bytesPerSample
+        } else {
+            frameCount = firstBuffer.mDataByteSize / (bytesPerSample * channels)
+        }
         guard frameCount > 0 else { return }
+
+        // For a rate-converting converter the output frame count differs from the input.
+        // E.g. AirPods deliver 24 kHz; mix target is 48 kHz → 480 input → 960 output frames.
+        // ioOutputDataPacketSize passed to AudioConverterFillComplexBuffer must be in OUTPUT frames.
+        let srcRate = nativeFormat?.mSampleRate ?? 48_000
+        let outputFrameCount: UInt32
+        if converter != nil, srcRate > 0, srcRate != 48_000 {
+            outputFrameCount = UInt32((Double(frameCount) * 48_000.0 / srcRate).rounded())
+        } else {
+            outputFrameCount = frameCount
+        }
+        guard outputFrameCount > 0 else { return }
 
         // Build an output buffer in the mix target format.
         guard let outputBuffer = AVAudioPCMBuffer(
             pcmFormat: MicAdapter.mixTargetAVFormat,
-            frameCapacity: AVAudioFrameCount(frameCount)
+            frameCapacity: AVAudioFrameCount(outputFrameCount)
         ) else { return }
-        outputBuffer.frameLength = AVAudioFrameCount(frameCount)
+        outputBuffer.frameLength = AVAudioFrameCount(outputFrameCount)
 
         if let cvt = converter, var src = nativeFormat {
-            // Convert to mix target format.
+            // Convert to mix target format; pass the OUTPUT frame count.
             convertBuffer(
                 converter: cvt,
                 inputABL: inputData,
                 nativeFormat: &src,
-                frameCount: frameCount,
+                outputFrameCount: outputFrameCount,
                 into: outputBuffer
             )
         } else {
@@ -356,74 +415,142 @@ public final class MicAdapter: UpstreamCaptureAdapter, @unchecked Sendable {
             copyBuffer(from: abl, frameCount: frameCount, into: outputBuffer)
         }
 
+        // Diagnostic: log every 100th IOProc call so we can see if audio is flowing.
+        if _ioProcCallCount % 100 == 1 {
+            let peak: Float
+            if let ch0 = outputBuffer.floatChannelData?[0] {
+                peak = (0..<Int(outputBuffer.frameLength)).reduce(0.0) { max($0, abs(ch0[$1])) }
+            } else {
+                peak = 0
+            }
+            os_log(.info, log: log, "IOProc #%d: frameLength=%d peak=%.4f (0=silence)",
+                   _ioProcCallCount, outputBuffer.frameLength, peak)
+        }
+
         handler(outputBuffer)
     }
 
     /// Copies raw float32 data from an input `AudioBufferList` into an `AVAudioPCMBuffer`.
-    /// Handles mono→stereo duplication. No sample-rate conversion.
+    /// Handles both non-interleaved (multiple buffers) and interleaved (single buffer) input,
+    /// and mono→stereo duplication. No sample-rate conversion.
     private func copyBuffer(
         from abl: AudioBufferList,
         frameCount: UInt32,
         into output: AVAudioPCMBuffer
     ) {
-        let channelCount = min(Int(abl.mNumberBuffers), 2)
         let bytesPerSample = UInt32(MemoryLayout<Float32>.size)
 
         withUnsafeMutablePointer(to: &output.mutableAudioBufferList.pointee) { ablPtr in
             let ablBuffers = UnsafeMutableAudioBufferListPointer(ablPtr)
-            for ch in 0..<channelCount {
-                let srcBuf = audioBuffer(from: abl, at: ch)
-                if let dst = ablBuffers[ch].mData?.assumingMemoryBound(to: Float32.self),
-                   let src = srcBuf.mData?.assumingMemoryBound(to: Float32.self) {
-                    let frames = Int(min(frameCount, srcBuf.mDataByteSize / bytesPerSample))
-                    dst.update(from: src, count: frames)
+
+            if abl.mNumberBuffers > 1 {
+                // Non-interleaved: each source buffer = one channel.
+                let channelCount = min(Int(abl.mNumberBuffers), 2)
+                for ch in 0..<channelCount {
+                    let srcBuf = audioBuffer(from: abl, at: ch)
+                    if let dst = ablBuffers[ch].mData?.assumingMemoryBound(to: Float32.self),
+                       let src = srcBuf.mData?.assumingMemoryBound(to: Float32.self) {
+                        let frames = Int(min(frameCount, srcBuf.mDataByteSize / bytesPerSample))
+                        dst.update(from: src, count: frames)
+                    }
                 }
-            }
-            // Mono → stereo: duplicate left to right.
-            if channelCount == 1,
-               let left  = ablBuffers[0].mData?.assumingMemoryBound(to: Float32.self),
-               let right = ablBuffers[1].mData?.assumingMemoryBound(to: Float32.self) {
-                right.update(from: left, count: Int(frameCount))
+                // Mono → stereo: duplicate left to right.
+                if abl.mNumberBuffers == 1,
+                   let left  = ablBuffers[0].mData?.assumingMemoryBound(to: Float32.self),
+                   let right = ablBuffers[1].mData?.assumingMemoryBound(to: Float32.self) {
+                    right.update(from: left, count: Int(frameCount))
+                }
+            } else {
+                // Interleaved: one buffer with all channels interleaved L R L R …
+                // Deinterleave into the output (non-interleaved).
+                let srcBuf = audioBuffer(from: abl, at: 0)
+                guard let src = srcBuf.mData?.assumingMemoryBound(to: Float32.self) else { return }
+                let srcChannels = Int(nativeFormat?.mChannelsPerFrame ?? 1)
+                let frames = Int(frameCount)
+
+                if srcChannels >= 2,
+                   let dstL = ablBuffers[0].mData?.assumingMemoryBound(to: Float32.self),
+                   let dstR = ablBuffers[1].mData?.assumingMemoryBound(to: Float32.self) {
+                    // Deinterleave stereo.
+                    for i in 0..<frames {
+                        dstL[i] = src[i * srcChannels]
+                        dstR[i] = src[i * srcChannels + 1]
+                    }
+                } else if let dstL = ablBuffers[0].mData?.assumingMemoryBound(to: Float32.self),
+                          let dstR = ablBuffers[1].mData?.assumingMemoryBound(to: Float32.self) {
+                    // Mono → stereo: copy mono samples to both channels.
+                    for i in 0..<frames {
+                        dstL[i] = src[i]
+                        dstR[i] = src[i]
+                    }
+                }
             }
         }
     }
 
     /// Runs the `AudioConverterRef` to resample / reformat into the mix target `AVAudioPCMBuffer`.
+    /// `outputFrameCount` must be in the converter's output domain (48 kHz), not input domain.
     private func convertBuffer(
         converter: AudioConverterRef,
         inputABL: UnsafePointer<AudioBufferList>,
         nativeFormat: inout AudioStreamBasicDescription,
-        frameCount: UInt32,
+        outputFrameCount: UInt32,
         into output: AVAudioPCMBuffer
     ) {
-        // AudioConverterFillComplexBuffer needs a user-data struct that the input proc can
-        // reference. We pass the raw input ABL pointer via a local variable on the stack.
-        var inputRef = inputABL
-        var ioOutputDataPacketSize = frameCount
+        let bpf = max(nativeFormat.mBytesPerFrame, 1)
+        var ctx = ConverterInputContext(
+            inputABL: inputABL,
+            bytesPerFrame: bpf,
+            totalFrames: inputABL.pointee.mBuffers.mDataByteSize / bpf,
+            consumed: 0
+        )
+        var ioOutputDataPacketSize = outputFrameCount
 
         withUnsafeMutablePointer(to: &output.mutableAudioBufferList.pointee) { outABL in
-            let _ = AudioConverterFillComplexBuffer(
-                converter,
-                { _, ioDataPackets, ioData, _, inUserData in
-                    // Input proc: hand the converter the original capture buffers.
-                    guard let userData = inUserData else { return kAudioConverterErr_UnspecifiedError }
-                    let sourcePtr = userData.load(as: UnsafePointer<AudioBufferList>.self)
-                    let sourceABL = sourcePtr.pointee
-                    ioData.pointee.mNumberBuffers = sourceABL.mNumberBuffers
-                    withUnsafePointer(to: sourceABL.mBuffers) { srcBufPtr in
-                        let dstBufPtr = UnsafeMutableAudioBufferListPointer(ioData)
-                        let count = Int(sourceABL.mNumberBuffers)
-                        for i in 0..<count {
-                            dstBufPtr[i] = srcBufPtr.advanced(by: i).pointee
+            withUnsafeMutablePointer(to: &ctx) { ctxPtr in
+                AudioConverterFillComplexBuffer(
+                    converter,
+                    { _, ioDataPackets, ioData, _, userData in
+                        guard let ud = userData else { return kAudioConverterErr_UnspecifiedError }
+                        let ctx = ud.assumingMemoryBound(to: ConverterInputContext.self)
+
+                        let remaining = ctx.pointee.totalFrames - ctx.pointee.consumed
+                        guard remaining > 0 else {
+                            ioDataPackets.pointee = 0
+                            return noErr
                         }
-                    }
-                    return noErr
-                },
-                &inputRef,
-                &ioOutputDataPacketSize,
-                outABL,
-                nil
-            )
+
+                        let requested = ioDataPackets.pointee
+                        let providing = min(requested, remaining)
+                        let byteOff = Int(ctx.pointee.consumed * ctx.pointee.bytesPerFrame)
+
+                        // Fill each input buffer starting at the current read offset.
+                        let srcABL = ctx.pointee.inputABL.pointee
+                        let numBufs = min(Int(ioData.pointee.mNumberBuffers),
+                                         Int(srcABL.mNumberBuffers))
+                        let dstBufs = UnsafeMutableAudioBufferListPointer(ioData)
+                        withUnsafePointer(to: srcABL.mBuffers) { srcBufBase in
+                            for i in 0..<numBufs {
+                                var buf = srcBufBase.advanced(by: i).pointee
+                                if let base = buf.mData {
+                                    buf.mData = base.advanced(by: byteOff)
+                                }
+                                buf.mDataByteSize = providing * ctx.pointee.bytesPerFrame
+                                dstBufs[i] = buf
+                            }
+                        }
+                        ioData.pointee.mNumberBuffers = UInt32(numBufs)
+
+                        ioDataPackets.pointee = providing
+                        ctx.pointee.consumed += providing
+                        return noErr
+                    },
+                    UnsafeMutableRawPointer(ctxPtr),
+                    &ioOutputDataPacketSize,
+                    outABL,
+                    nil
+                )
+            }
         }
     }
 

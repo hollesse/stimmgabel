@@ -6,7 +6,7 @@ type: bug
 context: infrastructure
 created: 2026-06-05
 completed: 2026-06-05
-commit:
+commit: f510b90
 depends_on: [infrastructure-006]
 blocks: []
 tags: [driver, coreaudio, audio-server-plugin, queryinterface]

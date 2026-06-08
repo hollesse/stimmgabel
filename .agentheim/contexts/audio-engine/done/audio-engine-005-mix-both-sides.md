@@ -6,7 +6,7 @@ type: feature
 context: audio-engine
 created: 2026-06-05
 completed: 2026-06-05
-commit:
+commit: 7468c6d
 depends_on: [audio-engine-003, audio-engine-004]
 blocks: [audio-engine-006]
 tags: [mix, coreaudio, dsp, mute, float32, stereo]

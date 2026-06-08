@@ -1,5 +1,14 @@
 import SwiftUI
 import AudioEngine
+import AVFAudio
+
+private final class SilentAdapter: UpstreamCaptureAdapter, @unchecked Sendable {
+    var onBuffer: ((AVAudioPCMBuffer) -> Void)?
+    var isRunning = false
+    var deviceName: String { "" }
+    func start() {}
+    func stop() { isRunning = false }
+}
 
 /// Main SwiftUI app scene.
 ///
@@ -20,11 +29,7 @@ public struct StimmgabelApp: App {
         if #available(macOS 14.2, *) {
             _viewModel = StateObject(wrappedValue: AppViewModel())
         } else {
-            let pipeline = AudioPipeline(
-                micAdapter: MicAdapter(),
-                systemAudioAdapter: MicAdapter() // placeholder — system-audio not available
-            )
-            _viewModel = StateObject(wrappedValue: AppViewModel(pipeline: pipeline))
+            _viewModel = StateObject(wrappedValue: AppViewModel(pipeline: AudioPipeline(systemAudioAdapter: SilentAdapter())))
         }
     }
 

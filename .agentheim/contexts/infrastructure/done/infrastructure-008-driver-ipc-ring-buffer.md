@@ -6,7 +6,7 @@ type: feature
 context: infrastructure
 created: 2026-06-05
 completed: 2026-06-05
-commit:
+commit: bb3e71a
 depends_on: []
 blocks: [audio-engine-006]
 tags: [driver, coreaudio, audio-server-plugin, ipc, xpc, ring-buffer]

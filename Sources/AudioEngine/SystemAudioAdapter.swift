@@ -64,6 +64,14 @@ public final class SystemAudioAdapter: UpstreamCaptureAdapter, @unchecked Sendab
         interleaved: false
     )!
 
+    // MARK: - Resampler
+
+    /// Resamples IOProc data to `mixTargetFormat` when the aggregate runs at a different rate.
+    /// Nil when the aggregate already delivers 48 kHz (no conversion needed).
+    private var converter: AVAudioConverter?
+    /// Input format matching what the aggregate IOProc actually delivers.
+    private var inputFormat: AVAudioFormat?
+
     // MARK: - Init / deinit
 
     public init() {}
@@ -245,8 +253,21 @@ public final class SystemAudioAdapter: UpstreamCaptureAdapter, @unchecked Sendab
                    "AudioHardwareCreateAggregateDevice failed: OSStatus %d", status)
             throw SystemAudioAdapterError.aggregateDeviceCreationFailed(status: status)
         }
+
+        // Query the actual native sample rate — do NOT force 48 kHz; the tap delivers
+        // at the system output rate and forcing 48 kHz breaks the tap data flow.
+        var rateAddr = AudioObjectPropertyAddress(
+            mSelector: kAudioDevicePropertyNominalSampleRate,
+            mScope:    kAudioObjectPropertyScopeGlobal,
+            mElement:  kAudioObjectPropertyElementMain
+        )
+        var actualRate: Float64 = 48_000
+        var sz = UInt32(MemoryLayout<Float64>.size)
+        AudioObjectGetPropertyData(aggregateID, &rateAddr, 0, nil, &sz, &actualRate)
+
         os_log(.info, log: log,
-               "Aggregate device created: deviceID=%d", aggregateID)
+               "Aggregate device created: deviceID=%d sampleRate=%.0f Hz",
+               aggregateID, actualRate)
         return aggregateID
     }
 
@@ -292,9 +313,42 @@ public final class SystemAudioAdapter: UpstreamCaptureAdapter, @unchecked Sendab
             self.ioProcID = nil
             throw SystemAudioAdapterError.ioProcRegistrationFailed(status: startStatus)
         }
+
+        // Build a resampler if the aggregate runs at something other than 48 kHz.
+        // The IOProc delivers interleaved stereo; we resample to non-interleaved 48 kHz.
+        setupConverter(for: aggregateDeviceID)
+    }
+
+    private func setupConverter(for deviceID: AudioDeviceID) {
+        var rateAddr = AudioObjectPropertyAddress(
+            mSelector: kAudioDevicePropertyNominalSampleRate,
+            mScope:    kAudioObjectPropertyScopeGlobal,
+            mElement:  kAudioObjectPropertyElementMain
+        )
+        var rate: Float64 = 48_000
+        var sz = UInt32(MemoryLayout<Float64>.size)
+        AudioObjectGetPropertyData(deviceID, &rateAddr, 0, nil, &sz, &rate)
+
+        // IOProc delivers interleaved stereo at `rate` Hz.
+        let src = AVAudioFormat(commonFormat: .pcmFormatFloat32,
+                                sampleRate: rate,
+                                channels: 2,
+                                interleaved: true)!
+        inputFormat = src
+
+        if rate != 48_000 {
+            converter = AVAudioConverter(from: src, to: SystemAudioAdapter.mixTargetFormat)
+            os_log(.info, log: log,
+                   "Resampler created: %.0f Hz interleaved → 48000 Hz non-interleaved", rate)
+        } else {
+            converter = nil
+            os_log(.info, log: log, "No resampling needed: tap already at 48000 Hz")
+        }
     }
 
     // MARK: - IOProc callback
+
+    private var didLogFormat = false
 
     private func handleIOProc(
         inputData: UnsafePointer<AudioBufferList>,
@@ -305,44 +359,85 @@ public final class SystemAudioAdapter: UpstreamCaptureAdapter, @unchecked Sendab
         let abl = inputData.pointee
         guard abl.mNumberBuffers > 0 else { return }
 
-        // Determine frame count from the first buffer.
-        let firstBuffer = abl.mBuffers
-        let bytesPerFrame = UInt32(MemoryLayout<Float32>.size)
-        let frameCount = firstBuffer.mDataByteSize / bytesPerFrame
-
+        let firstBuf      = abl.mBuffers
+        let nInBufs       = Int(abl.mNumberBuffers)
+        let nInChPerBuf   = Int(max(firstBuf.mNumberChannels, 1))
+        let bytesPerFrame = UInt32(MemoryLayout<Float32>.size) * firstBuf.mNumberChannels
+        let frameCount    = bytesPerFrame > 0 ? Int(firstBuf.mDataByteSize / bytesPerFrame) : 0
         guard frameCount > 0 else { return }
 
-        // Build an AVAudioPCMBuffer in the mix target format.
-        let format = SystemAudioAdapter.mixTargetFormat
-        guard let pcmBuffer = AVAudioPCMBuffer(
-            pcmFormat: format,
-            frameCapacity: AVAudioFrameCount(frameCount)
-        ) else { return }
-        pcmBuffer.frameLength = AVAudioFrameCount(frameCount)
-
-        // Copy channel data from the input AudioBufferList.
-        // The Process Tap delivers interleaved or non-interleaved depending on the device;
-        // we map it to non-interleaved float32. Channel 0 = left, channel 1 = right.
-        let channelCount = min(Int(abl.mNumberBuffers), 2)
-        withUnsafeMutablePointer(to: &pcmBuffer.mutableAudioBufferList.pointee) { ablPtr in
-            let ablBuffers = UnsafeMutableAudioBufferListPointer(ablPtr)
-            for ch in 0..<channelCount {
-                let srcBuf = audioBuffer(from: abl, at: ch)
-                if let dst = ablBuffers[ch].mData?.assumingMemoryBound(to: Float32.self),
-                   let src = srcBuf.mData?.assumingMemoryBound(to: Float32.self) {
-                    let framesToCopy = Int(min(frameCount, srcBuf.mDataByteSize / bytesPerFrame))
-                    dst.update(from: src, count: framesToCopy)
-                }
-            }
-            // If mono input, duplicate left channel to right.
-            if channelCount == 1,
-               let left = ablBuffers[0].mData?.assumingMemoryBound(to: Float32.self),
-               let right = ablBuffers[1].mData?.assumingMemoryBound(to: Float32.self) {
-                right.update(from: left, count: Int(frameCount))
-            }
+        if !didLogFormat {
+            didLogFormat = true
+            os_log(.info, log: log,
+                   "IOProc format: nBufs=%d nChPerBuf=%d dataByteSize=%d → frameCount=%d",
+                   nInBufs, nInChPerBuf, firstBuf.mDataByteSize, frameCount)
         }
 
-        handler(pcmBuffer)
+        // --- Wrap raw input bytes into an AVAudioPCMBuffer ---
+        // The tap delivers interleaved stereo; build a buffer pointing at the same memory.
+        guard let fmt = inputFormat,
+              let rawBuf = AVAudioPCMBuffer(pcmFormat: fmt,
+                                            frameCapacity: AVAudioFrameCount(frameCount))
+        else { return }
+        rawBuf.frameLength = AVAudioFrameCount(frameCount)
+
+        // Copy interleaved samples into rawBuf's single channel buffer.
+        if let dst = rawBuf.int16ChannelData {
+            _ = dst  // unused — just ensure it's interleaved
+        }
+        // For interleaved format the buffer is accessed via audioBufferList.
+        guard let srcPtr = firstBuf.mData else { return }
+        rawBuf.mutableAudioBufferList.pointee.mNumberBuffers = 1
+        rawBuf.mutableAudioBufferList.pointee.mBuffers.mData = srcPtr
+        rawBuf.mutableAudioBufferList.pointee.mBuffers.mDataByteSize = firstBuf.mDataByteSize
+        rawBuf.mutableAudioBufferList.pointee.mBuffers.mNumberChannels = firstBuf.mNumberChannels
+
+        // --- Convert / resample to 48 kHz non-interleaved stereo ---
+        if let conv = converter {
+            let outFrames = AVAudioFrameCount(
+                Double(frameCount) * 48_000.0 / fmt.sampleRate + 0.5
+            )
+            guard let outBuf = AVAudioPCMBuffer(
+                pcmFormat: SystemAudioAdapter.mixTargetFormat,
+                frameCapacity: outFrames
+            ) else { return }
+
+            var convError: NSError?
+            conv.convert(to: outBuf, error: &convError) { _, outStatus in
+                outStatus.pointee = .haveData
+                return rawBuf
+            }
+            if convError == nil && outBuf.frameLength > 0 {
+                handler(outBuf)
+            }
+        } else {
+            // Already 48 kHz — de-interleave directly into the mix-target buffer.
+            guard let outBuf = AVAudioPCMBuffer(
+                pcmFormat: SystemAudioAdapter.mixTargetFormat,
+                frameCapacity: AVAudioFrameCount(frameCount)
+            ) else { return }
+            outBuf.frameLength = AVAudioFrameCount(frameCount)
+
+            let left  = outBuf.floatChannelData![0]
+            let right = outBuf.floatChannelData![1]
+
+            if nInBufs == 1 && nInChPerBuf >= 2,
+               let src = firstBuf.mData?.assumingMemoryBound(to: Float32.self) {
+                for i in 0..<frameCount {
+                    left[i]  = src[i * nInChPerBuf]
+                    right[i] = src[i * nInChPerBuf + 1]
+                }
+            } else if let srcL = firstBuf.mData?.assumingMemoryBound(to: Float32.self) {
+                left.update(from: srcL, count: frameCount)
+                if nInBufs >= 2,
+                   let srcR = audioBuffer(from: abl, at: 1).mData?.assumingMemoryBound(to: Float32.self) {
+                    right.update(from: srcR, count: frameCount)
+                } else {
+                    right.update(from: srcL, count: frameCount)
+                }
+            }
+            handler(outBuf)
+        }
     }
 
     /// Unsafe helper to index into a fixed-size AudioBufferList.

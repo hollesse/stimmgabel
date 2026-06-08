@@ -6,7 +6,7 @@ type: bug
 context: infrastructure
 created: 2026-06-05
 completed: 2026-06-05
-commit:
+commit: 073c233
 depends_on: [infrastructure-008, audio-engine-006]
 blocks: []
 tags: [driver, ipc, shm, posix, darwin-notify, macos26, xpc]

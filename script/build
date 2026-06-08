@@ -15,21 +15,32 @@ DIST_DIR="$REPO_ROOT/dist"
 BUILD_DIR="$REPO_ROOT/.build/xcodebuild"
 
 echo ">>> Building $SCHEME ($CONFIGURATION)..."
+XCODE_LOG=$(mktemp)
 xcodebuild \
     -project "$PROJECT" \
     -scheme "$SCHEME" \
     -configuration "$CONFIGURATION" \
     -derivedDataPath "$REPO_ROOT/.build/xcodebuild-derived" \
     CONFIGURATION_BUILD_DIR="$BUILD_DIR" \
-    CODE_SIGN_IDENTITY="-" \
-    CODE_SIGN_STYLE=Manual \
-    PROVISIONING_PROFILE_SPECIFIER="" \
-    | grep -E "^(error:|warning:|>>>|Build succeeded|BUILD FAILED)" || true
+    CODE_SIGN_IDENTITY="Apple Development" \
+    CODE_SIGN_STYLE=Automatic \
+    DEVELOPMENT_TEAM="3C96LH326Y" \
+    ENABLE_HARDENED_RUNTIME=YES \
+    > "$XCODE_LOG" 2>&1
+XCODE_STATUS=$?
+grep -E "^(error:|warning:|BUILD)" "$XCODE_LOG" || true
+if [ $XCODE_STATUS -ne 0 ]; then
+    echo "ERROR: xcodebuild failed (exit $XCODE_STATUS). Full log:" >&2
+    cat "$XCODE_LOG" >&2
+    rm -f "$XCODE_LOG"
+    exit 1
+fi
+rm -f "$XCODE_LOG"
 
 APP_PATH="$BUILD_DIR/Stimmgabel.app"
 
 if [ ! -d "$APP_PATH" ]; then
-    echo "ERROR: $APP_PATH not found after build. Check xcodebuild output above." >&2
+    echo "ERROR: $APP_PATH not found after build." >&2
     exit 1
 fi
 

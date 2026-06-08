@@ -6,7 +6,7 @@ type: feature
 context: audio-engine
 created: 2026-06-05
 completed: 2026-06-05
-commit:
+commit: 1394b39
 depends_on: []
 blocks: [audio-engine-005]
 tags: [capture, process-tap, coreaudio, system-audio, aggregate-device, default-tracking]

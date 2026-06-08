@@ -6,7 +6,7 @@ type: feature
 context: audio-engine
 created: 2026-06-05
 completed: 2026-06-05
-commit:
+commit: 933eeae
 depends_on: [audio-engine-005, infrastructure-008]
 blocks: [menubar-ui-002, menubar-ui-003]
 tags: [output, xpc, ipc, ring-buffer, lazy-activation, driver]

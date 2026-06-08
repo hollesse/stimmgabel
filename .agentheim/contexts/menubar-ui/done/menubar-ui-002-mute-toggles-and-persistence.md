@@ -6,7 +6,7 @@ type: feature
 context: menubar-ui
 created: 2026-06-05
 completed: 2026-06-05
-commit:
+commit: fcfadaa
 depends_on: [audio-engine-006]
 blocks: []
 tags: [mute, toggle, userdefaults, persistence, swiftui, menubar]

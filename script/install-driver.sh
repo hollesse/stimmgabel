@@ -27,6 +27,7 @@ fi
 
 echo ">>> Installing Stimmgabel.driver to $DRIVER_DST"
 echo "    (You will be prompted for your admin password)"
+sudo rm -rf "$DRIVER_DST"
 sudo cp -R "$DRIVER_SRC" "$DRIVER_DST"
 
 echo ">>> Removing quarantine attribute (if present)"

@@ -52,7 +52,7 @@
 #define kManufacturerName    "INNOQ"
 
 #define kSampleRate          48000.0
-#define kChannelCount        2u
+#define kChannelCount        1u     // mono — simplest layout coreaudiod handles natively
 #define kBytesPerSample      4u     // float32
 #define kFramesPerPacket     1u
 #define kBytesPerFrame       (kChannelCount * kBytesPerSample)
@@ -83,6 +83,8 @@ typedef struct {
 } SGDriverState;
 
 static SGDriverState gState;
+static mach_timebase_info_data_t gMachTimebaseInfo;
+static uint64_t      gReadPos = 0;  // sequential SHM consumer read pointer (DoIOOperation)
 
 // ---------------------------------------------------------------------------
 // Forward declarations (vtable signatures)
@@ -150,37 +152,58 @@ static AudioServerPlugInDriverRef        gDriverRef           = &gDriverInterfac
 // SHM helpers
 // ---------------------------------------------------------------------------
 
-// Open (or create) the POSIX shared memory segment and mmap it.
-// Called once from Initialize.  On failure: logs a fault and leaves shmBuf = NULL.
+// Close and unmap the current SHM mapping (if any).
+// Safe to call even if shmBuf is NULL.
+static void SG_SHM_Close(void)
+{
+    pthread_mutex_lock(&gState.mutex);
+    if (gState.shmBuf != NULL) {
+        munmap((void *)gState.shmBuf, sizeof(SHMAudioBuffer));
+        gState.shmBuf = NULL;
+        SGLog("SHM: unmapped old segment");
+    }
+    pthread_mutex_unlock(&gState.mutex);
+}
+
+// Open the POSIX shared memory segment created by the app and mmap it read-only.
+// Called from Initialize AND from StartIO (always re-maps so the driver picks up
+// the current segment even if the app restarted since Initialize).
+// The driver never creates or resizes the SHM — that is the app's responsibility.
+// Read-only mapping: the driver only reads samples and writePos; it does not
+// update readPos (the latest-frame read model needs no consumer pointer).
 static void SG_SHM_Open(void)
 {
-    int fd = shm_open(SG_SHM_NAME, O_RDWR | O_CREAT, 0666);
+    // O_RDONLY: the driver's sandbox allows read-only SHM access.
+    // No O_CREAT: only open if the app has already created the segment.
+    int fd = shm_open(SG_SHM_NAME, O_RDONLY, 0);
     if (fd < 0) {
-        SGFault("SHM: shm_open(%s) failed: errno=%d", SG_SHM_NAME, errno);
+        // ENOENT means the app hasn't started yet — silent, will retry on StartIO.
+        if (errno != ENOENT) {
+            SGFault("SHM: shm_open(%s) failed: errno=%d", SG_SHM_NAME, errno);
+        } else {
+            SGLog("SHM: segment not found yet (app not started), will retry");
+        }
         return;
     }
-    SGFault("SHM: shm_open(%s) succeeded, fd=%d", SG_SHM_NAME, fd);
 
     size_t sz = sizeof(SHMAudioBuffer);
-    if (ftruncate(fd, (off_t)sz) < 0) {
-        SGFault("SHM: ftruncate(%zu) failed: errno=%d", sz, errno);
-        close(fd);
-        return;
-    }
-
-    void *mapped = mmap(NULL, sz, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+    // PROT_READ only — no write access needed; no ftruncate needed.
+    void *mapped = mmap(NULL, sz, PROT_READ, MAP_SHARED, fd, 0);
+    close(fd);   // fd no longer needed after mmap
     if (mapped == MAP_FAILED) {
         SGFault("SHM: mmap(%zu) failed: errno=%d", sz, errno);
-        close(fd);
         return;
     }
 
     pthread_mutex_lock(&gState.mutex);
-    gState.shmFd  = fd;
+    gState.shmFd  = -1;   // fd was closed above
     gState.shmBuf = (SHMAudioBuffer *)mapped;
     pthread_mutex_unlock(&gState.mutex);
 
-    SGFault("SHM: mapped %zu bytes at %p", sz, mapped);
+    uint64_t wp = atomic_load_explicit(&((SHMAudioBuffer *)mapped)->writePos,
+                                       memory_order_acquire);
+    SGFault("SHM: mapped %zu bytes read-only at %p (writePos=%llu)",
+            sz, mapped, (unsigned long long)wp);
 }
 
 // ---------------------------------------------------------------------------
@@ -197,6 +220,7 @@ void *AudioServerPlugInDriverCreate(CFAllocatorRef inAllocator)
     gState.hostRef       = NULL;
     gState.shmFd         = -1;
     gState.shmBuf        = NULL;
+    mach_timebase_info(&gMachTimebaseInfo);
     SGLog("AudioServerPlugInDriverCreate called — driver ref %p", (void*)gDriverRef);
     return gDriverRef;
 }
@@ -335,6 +359,9 @@ static Boolean SGDriver_HasProperty(AudioServerPlugInDriverRef inDriver,
         case kAudioDevicePropertyDeviceCanBeDefaultSystemDevice:
         case kAudioDevicePropertyLatency:
         case kAudioDevicePropertyStreams:
+        case kAudioDevicePropertyStreamConfiguration:  // required by PortAudio / AUHAL
+        case kAudioDevicePropertyBufferFrameSize:      // non-fatal but needed for accurate latency
+        case kAudioDevicePropertyBufferFrameSizeRange: // non-fatal but needed for buffer clamping
         case kAudioDevicePropertySafetyOffset:
         case kAudioDevicePropertyNominalSampleRate:
         case kAudioDevicePropertyAvailableNominalSampleRates:
@@ -470,10 +497,19 @@ static OSStatus SGDriver_GetPropertyDataSize(AudioServerPlugInDriverRef inDriver
             *outDataSize = (inAddress->mScope == kAudioObjectPropertyScopeOutput)
                            ? 0 : sizeof(AudioObjectID);
             return kAudioHardwareNoError;
+        case kAudioDevicePropertyStreamConfiguration:
+            if (inAddress->mScope == kAudioObjectPropertyScopeOutput) {
+                *outDataSize = (UInt32)(offsetof(AudioBufferList, mBuffers));
+            } else {
+                *outDataSize = (UInt32)(offsetof(AudioBufferList, mBuffers) + sizeof(AudioBuffer));
+            }
+            return kAudioHardwareNoError;
+        case kAudioDevicePropertyBufferFrameSize:      *outDataSize = sizeof(UInt32);           return kAudioHardwareNoError;
+        case kAudioDevicePropertyBufferFrameSizeRange: *outDataSize = sizeof(AudioValueRange);  return kAudioHardwareNoError;
         case kAudioDevicePropertyAvailableNominalSampleRates: *outDataSize = sizeof(AudioValueRange); return kAudioHardwareNoError;
         case kAudioDevicePropertyIcon: *outDataSize = sizeof(CFURLRef); return kAudioHardwareNoError;
         case kAudioDevicePropertyPreferredChannelLayout: {
-            UInt32 s = (UInt32)(offsetof(AudioChannelLayout, mChannelDescriptions) + kChannelCount * sizeof(AudioChannelDescription));
+            UInt32 s = (UInt32)(offsetof(AudioChannelLayout, mChannelDescriptions) + sizeof(AudioChannelDescription));
             *outDataSize = s;
             return kAudioHardwareNoError;
         }
@@ -524,12 +560,12 @@ static AudioStreamBasicDescription SGStreamFormat(void)
     memset(&f, 0, sizeof(f));
     f.mSampleRate       = kSampleRate;
     f.mFormatID         = kAudioFormatLinearPCM;
-    f.mFormatFlags      = kAudioFormatFlagsNativeFloatPacked | kAudioFormatFlagIsNonInterleaved;
+    f.mFormatFlags      = kAudioFormatFlagsNativeFloatPacked;
     f.mBitsPerChannel   = 32;
-    f.mChannelsPerFrame = kChannelCount;
-    f.mBytesPerFrame    = kBytesPerSample;      // non-interleaved: per-channel frame size
+    f.mChannelsPerFrame = kChannelCount;        // 1 (mono)
+    f.mBytesPerFrame    = kBytesPerFrame;       // 4 bytes (1 channel × float32)
     f.mFramesPerPacket  = kFramesPerPacket;
-    f.mBytesPerPacket   = kBytesPerSample;
+    f.mBytesPerPacket   = kBytesPerFrame;
     return f;
 }
 
@@ -645,22 +681,45 @@ static OSStatus SGDriver_GetPropertyData(AudioServerPlugInDriverRef inDriver,
             return kAudioHardwareNoError;
         }
         case kAudioDevicePropertyPreferredChannelLayout: {
-            UInt32 sz = (UInt32)(offsetof(AudioChannelLayout, mChannelDescriptions) + kChannelCount * sizeof(AudioChannelDescription));
+            UInt32 sz = (UInt32)(offsetof(AudioChannelLayout, mChannelDescriptions) + sizeof(AudioChannelDescription));
             AudioChannelLayout *l = (AudioChannelLayout*)outData;
             l->mChannelLayoutTag = kAudioChannelLayoutTag_UseChannelDescriptions;
             l->mChannelBitmap    = 0;
-            l->mNumberChannelDescriptions = kChannelCount;
-            l->mChannelDescriptions[0].mChannelLabel = kAudioChannelLabel_Left;
+            l->mNumberChannelDescriptions = 1;
+            l->mChannelDescriptions[0].mChannelLabel = kAudioChannelLabel_Mono;
             l->mChannelDescriptions[0].mChannelFlags = 0;
             l->mChannelDescriptions[0].mCoordinates[0] = 0;
             l->mChannelDescriptions[0].mCoordinates[1] = 0;
             l->mChannelDescriptions[0].mCoordinates[2] = 0;
-            l->mChannelDescriptions[1].mChannelLabel = kAudioChannelLabel_Right;
-            l->mChannelDescriptions[1].mChannelFlags = 0;
-            l->mChannelDescriptions[1].mCoordinates[0] = 0;
-            l->mChannelDescriptions[1].mCoordinates[1] = 0;
-            l->mChannelDescriptions[1].mCoordinates[2] = 0;
             *outDataSize = sz;
+            return kAudioHardwareNoError;
+        }
+        case kAudioDevicePropertyStreamConfiguration: {
+            // Mono input: 1 buffer, 1 channel.
+            AudioBufferList *abl = (AudioBufferList *)outData;
+            if (inAddress->mScope == kAudioObjectPropertyScopeOutput) {
+                abl->mNumberBuffers = 0;
+                *outDataSize = (UInt32)offsetof(AudioBufferList, mBuffers);
+            } else {
+                abl->mNumberBuffers = 1;
+                abl->mBuffers[0].mNumberChannels = 1;
+                abl->mBuffers[0].mDataByteSize   = 0;
+                abl->mBuffers[0].mData           = NULL;
+                *outDataSize = (UInt32)(offsetof(AudioBufferList, mBuffers) + sizeof(AudioBuffer));
+            }
+            return kAudioHardwareNoError;
+        }
+        case kAudioDevicePropertyBufferFrameSize: {
+            // Fixed buffer size matching our render period (kZeroTimeStampPeriod = 512).
+            WU32(kZeroTimeStampPeriod);
+            return kAudioHardwareNoError;
+        }
+        case kAudioDevicePropertyBufferFrameSizeRange: {
+            // Fixed-size device — only one valid buffer size.
+            AudioValueRange *r = (AudioValueRange *)outData;
+            r->mMinimum = kZeroTimeStampPeriod;
+            r->mMaximum = kZeroTimeStampPeriod;
+            *outDataSize = sizeof(AudioValueRange);
             return kAudioHardwareNoError;
         }
         default: return kAudioHardwareUnknownPropertyError;
@@ -741,8 +800,19 @@ static OSStatus SGDriver_SetPropertyData(AudioServerPlugInDriverRef inDriver,
 
     switch (inObjectID) {
     case kObjectID_Device:
-        if (inAddress->mSelector == kAudioDevicePropertyNominalSampleRate)
+        if (inAddress->mSelector == kAudioDevicePropertyNominalSampleRate) {
+            // Only accept 48000 Hz — reject any other rate so PortAudio / Audacity
+            // receive an explicit error (-9997) instead of silent inconsistency.
+            if (inDataSize >= sizeof(Float64) && inData != NULL) {
+                Float64 requested = *((const Float64*)inData);
+                if (requested != kSampleRate) {
+                    SGLog("SetPropertyData: rejected sample rate %.0f (only %.0f supported)",
+                          requested, kSampleRate);
+                    return kAudioDeviceUnsupportedFormatError;
+                }
+            }
             return kAudioHardwareNoError;
+        }
         break;
     case kObjectID_Stream:
         if (inAddress->mSelector == kAudioStreamPropertyVirtualFormat ||
@@ -789,6 +859,19 @@ static OSStatus SGDriver_StartIO(AudioServerPlugInDriverRef inDriver,
     gState.frameCount    = 0;
     pthread_mutex_unlock(&gState.mutex);
 
+    // Always re-map SHM on StartIO so the driver picks up the current segment.
+    // The app may have restarted since Initialize (creating a new SHM segment);
+    // without re-mapping the driver would read from the old orphaned segment
+    // and see only zeros — delivering permanent silence to consumers.
+    SG_SHM_Close();
+    SG_SHM_Open();
+
+    // Reset sequential read pointer to current writePos so we don't
+    // replay stale audio from a previous session.
+    gReadPos = gState.shmBuf
+               ? atomic_load_explicit(&gState.shmBuf->writePos, memory_order_acquire)
+               : 0;
+
     // Notify the app that a consumer has started reading (ADR 0012).
     notify_post(SG_NOTIFY_ACTIVE);
     SGLog("StartIO: consumer active — notified %s", SG_NOTIFY_ACTIVE);
@@ -812,9 +895,9 @@ static OSStatus SGDriver_StopIO(AudioServerPlugInDriverRef inDriver,
     return kAudioHardwareNoError;
 }
 
-// GetZeroTimeStamp: three output params (sample time, host time, seed).
-// NOTE: outHostTime is returned as startHostTime and never advances — this
-// causes timing drift once real audio flows.  Fix in a follow-up if audible.
+// GetZeroTimeStamp: report the sample time and corresponding host time for the
+// most recent period boundary.  outHostTime must advance correctly so coreaudiod
+// can track the virtual clock rate and avoid repeated ADAPT cycles.
 static OSStatus SGDriver_GetZeroTimeStamp(AudioServerPlugInDriverRef inDriver,
                                           AudioObjectID inDeviceObjectID,
                                           UInt32 inClientID,
@@ -828,9 +911,21 @@ static OSStatus SGDriver_GetZeroTimeStamp(AudioServerPlugInDriverRef inDriver,
     UInt64 st = gState.startHostTime;
     pthread_mutex_unlock(&gState.mutex);
 
-    *outSampleTime = (Float64)(fc - (fc % kZeroTimeStampPeriod));
-    *outHostTime   = st;
-    *outSeed       = 1;
+    // Floor frameCount to the nearest period boundary.
+    UInt64 periodNum = fc / kZeroTimeStampPeriod;
+    Float64 zeroSampleTime = (Float64)(periodNum * kZeroTimeStampPeriod);
+
+    // Compute the host time that corresponds to this zero sample time.
+    // zeroSampleTime frames at kSampleRate = zeroSampleTime / kSampleRate seconds
+    //   = zeroSampleTime * 1e9 / kSampleRate nanoseconds
+    //   = ns * (denom / numer) mach absolute time units.
+    double ns = (double)zeroSampleTime / kSampleRate * 1.0e9;
+    UInt64 machOffset = (UInt64)(ns * (double)gMachTimebaseInfo.denom
+                                    / (double)gMachTimebaseInfo.numer);
+
+    *outSampleTime = zeroSampleTime;
+    *outHostTime   = st + machOffset;
+    *outSeed       = 1;     // constant: no discontinuities in our virtual clock
     return kAudioHardwareNoError;
 }
 
@@ -860,26 +955,16 @@ static OSStatus SGDriver_BeginIOOperation(AudioServerPlugInDriverRef inDriver,
 }
 
 // DoIOOperation: called per I/O cycle per channel (non-interleaved, 2 channels).
-// ioMainBuffer receives one channel's worth of samples (inIOBufferFrameSize floats).
-//
-// Strategy for non-interleaved drain:
-//   We drain left+right from the ring buffer on the FIRST channel call per cycle.
-//   We buffer the right channel in gState until the second call.
-//   A per-cycle counter (gState.frameCount used as a sentinel) tells us which
-//   call we're on.  Specifically: we use a scratch buffer for the right channel.
-//
-// Simpler implementation used here: since CoreAudio calls DoIOOperation once per
-// channel in the same I/O cycle in order (ch0 before ch1), we maintain a small
-// per-cycle scratch buffer.  On ch0 we drain and keep right samples.  On ch1 we
-// copy from scratch.  A 'channelFillPhase' flag tracks state.
-//
-// Note: this relies on the two channel calls being serialised by coreaudiod (they
-// are — the I/O thread issues them sequentially within the same I/O cycle).
+// ioMainBuffer is a flat float* for inIOBufferFrameSize mono samples.
+// Mono device: 1 channel, no interleaving, no ABL header.
 // ---------------------------------------------------------------------------
 
-static float gScratchRight[kZeroTimeStampPeriod * 4];  // over-provisioned scratch
-static Boolean gScratchReady = false;
+static uint32_t gDoIOCallCount = 0;
 
+// DoIOOperation for a mono input device.
+//
+// ioMainBuffer is a flat float* for inIOBufferFrameSize samples.
+// Fill with mono mix (L+R)/2 from the SHM ring buffer.
 static OSStatus SGDriver_DoIOOperation(AudioServerPlugInDriverRef inDriver,
                                        AudioObjectID inDeviceObjectID,
                                        AudioObjectID inStreamObjectID,
@@ -896,50 +981,47 @@ static OSStatus SGDriver_DoIOOperation(AudioServerPlugInDriverRef inDriver,
     if (inOperationID != kAudioServerPlugInIOOperationReadInput)
         return kAudioHardwareNoError;
 
-    if (ioMainBuffer != NULL) {
-        if (!gScratchReady) {
-            // First channel call this cycle: drain interleaved from SHMAudioBuffer.
-            SHMAudioBuffer *buf = gState.shmBuf;
-            uint32_t scratchCapacity = (uint32_t)(sizeof(gScratchRight) / sizeof(float));
-            uint32_t drainFrames = (inIOBufferFrameSize <= scratchCapacity)
-                                   ? inIOBufferFrameSize : scratchCapacity;
-            float *lBuf = (float *)ioMainBuffer;
+    if (ioMainBuffer == NULL)
+        return kAudioHardwareNoError;
 
-            if (buf != NULL) {
-                uint64_t r     = atomic_load_explicit(&buf->readPos,  memory_order_relaxed);
-                uint64_t w     = atomic_load_explicit(&buf->writePos, memory_order_acquire);
-                uint64_t avail = (w > r) ? (w - r) : 0u;
-                uint32_t readFrames = (drainFrames <= (uint32_t)avail) ? drainFrames : (uint32_t)avail;
+    gDoIOCallCount++;
 
-                for (uint32_t i = 0u; i < readFrames; i++) {
-                    uint64_t slot = (r + i) % SG_SHM_CAPACITY;
-                    lBuf[i]          = buf->samples[slot * 2u];
-                    gScratchRight[i] = buf->samples[slot * 2u + 1u];
-                }
-                for (uint32_t i = readFrames; i < inIOBufferFrameSize; i++) {
-                    lBuf[i]          = 0.0f;
-                    gScratchRight[i] = 0.0f;
-                }
-                atomic_store_explicit(&buf->readPos, r + readFrames, memory_order_release);
-            } else {
-                // SHM not yet mapped — emit silence.
-                for (uint32_t i = 0u; i < inIOBufferFrameSize; i++) {
-                    lBuf[i]          = 0.0f;
-                    gScratchRight[i] = 0.0f;
-                }
-            }
-            gScratchReady = true;
-        } else {
-            // Second channel call this cycle: copy right channel from scratch.
-            memcpy(ioMainBuffer, gScratchRight, (size_t)inIOBufferFrameSize * sizeof(float));
-            gScratchReady = false;
+    AudioBufferList *abl    = (AudioBufferList *)ioMainBuffer;
+    SHMAudioBuffer  *shm   = gState.shmBuf;
+    uint32_t         frames = inIOBufferFrameSize;
+    uint64_t         w      = shm ? atomic_load_explicit(&shm->writePos, memory_order_acquire) : 0;
 
-            // Advance the frame counter once per complete I/O cycle (after both channels).
-            pthread_mutex_lock(&gState.mutex);
-            gState.frameCount += inIOBufferFrameSize;
-            pthread_mutex_unlock(&gState.mutex);
+    // Sequential consumer model: read from gReadPos, advance by frames.
+    // This avoids the "latest-frame" repetition that occurred when the writer
+    // (IOProc, 512 frames/10.67ms) and reader (DoIO, 192 frames/4ms) run at
+    // different granularities — previously the same 192 frames were delivered
+    // 2-3 times before the next write, causing robotic stuttering.
+    float *out = (float *)ioMainBuffer;
+
+    if (shm != NULL && (w - gReadPos) >= (uint64_t)frames) {
+        // Enough new data — read sequentially and advance.
+        for (uint32_t i = 0u; i < frames; i++) {
+            uint64_t slot = (gReadPos + i) % SG_SHM_CAPACITY;
+            out[i] = (shm->samples[slot * 2u] + shm->samples[slot * 2u + 1u]) * 0.5f;
         }
+        gReadPos += frames;
+    } else {
+        // Underrun: not enough new data yet — emit silence.
+        memset(out, 0, frames * sizeof(float));
     }
+
+    // Diagnostic: log every ~500 calls (~5 s).
+    if (gDoIOCallCount % 500 == 1) {
+        SGLog("DoIO #%u: frames=%u writePos=%llu readPos=%llu buffered=%llu",
+              gDoIOCallCount, frames, (unsigned long long)w,
+              (unsigned long long)gReadPos,
+              (unsigned long long)(w - gReadPos));
+    }
+
+    // Advance the frame counter once per IO cycle.
+    pthread_mutex_lock(&gState.mutex);
+    gState.frameCount += frames;
+    pthread_mutex_unlock(&gState.mutex);
 
     return kAudioHardwareNoError;
 }
