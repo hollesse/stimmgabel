@@ -33,7 +33,7 @@ final class DriverOutputAdapterTests: XCTestCase {
     // Helper: build a pipeline with a fake system-audio adapter.
     private func makePipeline() -> (pipeline: AudioPipeline, sysAudio: FakeUpstreamCaptureAdapter) {
         let sysAudio = FakeUpstreamCaptureAdapter()
-        let pipeline = AudioPipeline(systemAudioAdapter: sysAudio)
+        let pipeline = AudioPipeline(systemAudioAdapter: sysAudio, micAdapter: FakeUpstreamCaptureAdapter())
         return (pipeline, sysAudio)
     }
 

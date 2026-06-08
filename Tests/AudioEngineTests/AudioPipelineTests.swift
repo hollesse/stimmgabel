@@ -31,8 +31,9 @@ final class FakeUpstreamCaptureAdapter: UpstreamCaptureAdapter, @unchecked Senda
 final class AudioPipelineTests: XCTestCase {
 
     private func makePipeline() -> (AudioPipeline, FakeUpstreamCaptureAdapter) {
-        let adapter = FakeUpstreamCaptureAdapter()
-        return (AudioPipeline(systemAudioAdapter: adapter), adapter)
+        let sysAudio = FakeUpstreamCaptureAdapter()
+        let mic      = FakeUpstreamCaptureAdapter()
+        return (AudioPipeline(systemAudioAdapter: sysAudio, micAdapter: mic), sysAudio)
     }
 
     private func makeStereoBuffer(frameCount: Int, value: Float) -> AVAudioPCMBuffer {
@@ -122,19 +123,50 @@ final class AudioPipelineTests: XCTestCase {
                       "Expected sys audio 0.5, got \(received.prefix(3))")
     }
 
-    func test_adapter_buffer_reachesOutput() {
-        // Phase 3: the single combined adapter (SystemAudioAdapter) delivers
-        // already-mixed sys+mic buffers.  This test verifies the data path.
-        let (pipeline, adapter) = makePipeline()
+    func test_mic_reachesOutput_mixedWithSysAudio() {
+        // This is the regression test for the Phase 2 mic mixing.
+        // When a mic buffer arrives BEFORE the sys audio IOProc fires, its samples
+        // should appear summed into the output.
+        let sysAudio = FakeUpstreamCaptureAdapter()
+        let mic      = FakeUpstreamCaptureAdapter()
+        let pipeline = AudioPipeline(systemAudioAdapter: sysAudio, micAdapter: mic)
+
         var received: [Float] = []
         pipeline.outputSink = { data, _ in
             data.withUnsafeBytes { received = Array($0.bindMemory(to: Float.self)) }
         }
         pipeline.consumerAttached()
-        adapter.emitBuffer(makeStereoBuffer(frameCount: 512, value: 0.7))
-        XCTAssertFalse(received.isEmpty, "outputSink must be called when adapter emits")
-        XCTAssertTrue(received.allSatisfy { abs($0 - 0.7) < 1e-5 },
-            "Expected value 0.7 from adapter, got \(received.prefix(3))")
+
+        // Emit mic audio first — goes into micStaging FIFO
+        mic.emitBuffer(makeStereoBuffer(frameCount: 512, value: 0.3))
+
+        // Emit sys audio — triggers forwardMixed() which drains micStaging
+        sysAudio.emitBuffer(makeStereoBuffer(frameCount: 512, value: 0.5))
+
+        XCTAssertFalse(received.isEmpty, "outputSink must be called")
+        // Expected: sys(0.5) + mic(0.3) = 0.8 for every sample
+        let peak = received.map(abs).max() ?? 0
+        XCTAssertGreaterThan(peak, 0.7,
+            "Mic audio not mixed in — peak=\(peak), expected ≈ 0.8 (0.5 sys + 0.3 mic). " +
+            "Check that micStaging.drain() returns mic samples in forwardMixed().")
+        XCTAssertTrue(received.allSatisfy { abs($0 - 0.8) < 1e-5 },
+            "Expected sys(0.5)+mic(0.3)=0.8, got \(received.prefix(3))")
+    }
+
+    func test_mic_withoutSysAudio_doesNotCallOutputSink() {
+        // Without sys audio, forwardMixed() is never called → no output.
+        // Mic-only audio goes into staging but never drains — this is by design
+        // (sys audio drives the output timing).
+        let sysAudio = FakeUpstreamCaptureAdapter()
+        let mic      = FakeUpstreamCaptureAdapter()
+        let pipeline = AudioPipeline(systemAudioAdapter: sysAudio, micAdapter: mic)
+
+        var called = false
+        pipeline.outputSink = { _, _ in called = true }
+        pipeline.consumerAttached()
+
+        mic.emitBuffer(makeStereoBuffer(frameCount: 512, value: 0.9))
+        XCTAssertFalse(called, "Without sys audio IOProc, outputSink must not fire")
     }
 
     func test_noOutputSink_emitBuffer_doesNotCrash() {

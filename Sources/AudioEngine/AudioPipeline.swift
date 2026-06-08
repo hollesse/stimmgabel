@@ -8,12 +8,13 @@ public enum AudioPipelineState: Equatable, Sendable {
     case consumerAttached
 }
 
-/// Coordinates the combined (system audio + mic) capture → SHM data path.
+/// Coordinates the mic + system-audio capture → SHM data path.
 ///
-/// Phase 3 architecture: a single adapter (SystemAudioAdapter) captures both
-/// system audio and microphone via a single CoreAudio aggregate device.  The
-/// IOProc callback delivers already-mixed buffers, which are written to SHM
-/// without any additional staging or mixing in this class.
+/// Phase 2: both mic and system audio, no mute.
+/// System audio's IOProc drives the mix timing (it fires at the hardware
+/// clock rate and is already synchronized with coreaudiod).  The mic feeds
+/// a staging FIFO; when the system audio callback fires it drains matching
+/// mic frames, mixes them in, and writes the result to SHM.
 public final class AudioPipeline: @unchecked Sendable {
 
     private let queue = DispatchQueue(label: "com.innoq.stimmgabel.AudioPipeline.state")
@@ -30,9 +31,21 @@ public final class AudioPipeline: @unchecked Sendable {
     }
     private var _sysName: String = ""
 
+    public var currentMicDeviceName: String {
+        get { queue.sync { _micName } }
+        set { queue.sync { _micName = newValue } }
+    }
+    private var _micName: String = ""
+
     public var deviceNamesDidChange: (() -> Void)?
 
+    // MARK: - Adapters
+
     private let systemAudioAdapter: any UpstreamCaptureAdapter
+    private let micAdapter: any UpstreamCaptureAdapter
+
+    /// FIFO of interleaved mic samples drained on each system-audio IOProc call.
+    private let micStaging = StagingBuffer()
 
     // MARK: - IPC sink
 
@@ -42,9 +55,16 @@ public final class AudioPipeline: @unchecked Sendable {
 
     // MARK: - Init
 
-    public init(systemAudioAdapter: any UpstreamCaptureAdapter) {
+    public init(systemAudioAdapter: any UpstreamCaptureAdapter,
+                micAdapter: any UpstreamCaptureAdapter) {
         self.systemAudioAdapter = systemAudioAdapter
-        systemAudioAdapter.onBuffer = { [weak self] buf in self?.forward(buf) }
+        self.micAdapter         = micAdapter
+
+        // System audio drives the mix — its IOProc fires at the hardware clock.
+        systemAudioAdapter.onBuffer = { [weak self] buf in self?.forwardMixed(buf) }
+
+        // Mic feeds the staging FIFO; drained on each system-audio callback.
+        micAdapter.onBuffer = { [weak self] buf in self?.micStaging.store(buf) }
     }
 
     // MARK: - Consumer lifecycle
@@ -52,48 +72,72 @@ public final class AudioPipeline: @unchecked Sendable {
     public func consumerAttached() {
         queue.sync {
             guard state == .idle else { return }
+            // System audio starts first (blocking, ~1 s) — consumer hears it immediately.
             try? systemAudioAdapter.start()
             _sysName = systemAudioAdapter.deviceName
             state = .consumerAttached
         }
         deviceNamesDidChange?()
+
+        // Mic starts in the background — no blocking, mic audio joins the mix ~1–2 s later.
+        // The micStaging FIFO delivers zeros until mic frames arrive (silence in mic channel).
+        // Engine.stop() in MicAdapter.stop() ensures the indicator disappears on detach.
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            guard let self else { return }
+            try? self.micAdapter.start()
+            self.queue.async { [weak self] in
+                guard let self else { return }
+                self._micName = self.micAdapter.deviceName
+                self.deviceNamesDidChange?()
+            }
+        }
     }
 
     public func consumerDetached() {
         queue.sync {
             guard state == .consumerAttached else { return }
             systemAudioAdapter.stop()
+            micAdapter.stop()
             _sysName = systemAudioAdapter.deviceName
+            _micName = micAdapter.deviceName
             state = .idle
         }
         deviceNamesDidChange?()
     }
 
-    // MARK: - Forward to SHM
+    // MARK: - Mix + forward
 
-    private func forward(_ buf: AVAudioPCMBuffer) {
+    /// Called on the system-audio IOProc thread with each system-audio buffer.
+    /// Drains matching mic samples, mixes, and writes the result to SHM.
+    private func forwardMixed(_ sysBuf: AVAudioPCMBuffer) {
         guard let sink = outputSink else { return }
         guard
-            buf.format.commonFormat == .pcmFormatFloat32,
-            !buf.format.isInterleaved,
-            buf.format.channelCount == 2,
-            buf.frameLength > 0,
-            let ch0 = buf.floatChannelData?[0],
-            let ch1 = buf.floatChannelData?[1]
+            sysBuf.format.commonFormat == .pcmFormatFloat32,
+            !sysBuf.format.isInterleaved,
+            sysBuf.format.channelCount == 2,
+            sysBuf.frameLength > 0,
+            let sysL = sysBuf.floatChannelData?[0],
+            let sysR = sysBuf.floatChannelData?[1]
         else { return }
 
-        let n = Int(buf.frameLength)
+        let n = Int(sysBuf.frameLength)
 
+        // Drain mic samples from FIFO (zeros if mic hasn't delivered yet).
+        let micSamples = micStaging.drain(frameCount: n)  // interleaved L,R,L,R,...
+
+        // Diagnostic: log mic peak every ~94 calls (~1 s) so we can verify data flows.
         self._mixCallCount += 1
         if self._mixCallCount % 94 == 1 {
-            let peak = (0..<n).reduce(0 as Float) { max($0, abs(ch0[$1])) }
-            self.log.info("forward #\(self._mixCallCount): peak=\(peak, privacy: .public)")
+            let micPeak = micSamples.reduce(0 as Float) { max($0, abs($1)) }
+            let sysPeak = (0..<n).reduce(0 as Float) { max($0, abs(sysL[$1])) }
+            self.log.info("mix #\(self._mixCallCount): sysPeak=\(sysPeak, privacy: .public) micPeak=\(micPeak, privacy: .public)")
         }
 
+        // Mix: output[i] = sysAudio[i] + mic[i].
         var interleaved = [Float](repeating: 0, count: n * 2)
         for i in 0..<n {
-            interleaved[i * 2]     = ch0[i]
-            interleaved[i * 2 + 1] = ch1[i]
+            interleaved[i * 2]     = sysL[i] + micSamples[i * 2]
+            interleaved[i * 2 + 1] = sysR[i] + micSamples[i * 2 + 1]
         }
         let data = interleaved.withUnsafeBufferPointer { Data(buffer: $0) }
         sink(data, UInt32(n))
@@ -101,6 +145,7 @@ public final class AudioPipeline: @unchecked Sendable {
 
     // MARK: - Legacy mix() for tests
 
+    /// Returns silence. Only used by unit tests that exercise the pipeline directly.
     public func mix(frameCount: Int) -> [Float] {
         [Float](repeating: 0, count: frameCount * 2)
     }
