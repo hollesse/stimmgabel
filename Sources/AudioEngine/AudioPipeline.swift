@@ -73,26 +73,12 @@ public final class AudioPipeline: @unchecked Sendable {
         queue.sync {
             guard state == .idle else { return }
             try? systemAudioAdapter.start()
+            try? micAdapter.start()
             _sysName = systemAudioAdapter.deviceName
+            _micName = micAdapter.deviceName
             state = .consumerAttached
         }
         deviceNamesDidChange?()
-
-        // Start the mic adapter asynchronously so it does NOT block the pipeline queue
-        // while AudioDeviceStart contacts coreaudiod.  On macOS 26, starting both the
-        // system-audio aggregate and the mic device simultaneously causes coreaudiod to
-        // time out on one of them (IOWorkLoop 0x3C / ETIMEDOUT).  Staggering the start
-        // avoids this: system audio is up first, mic joins ~100 ms later.
-        // The micStaging FIFO absorbs the startup delay — forwardMixed() gets zeros
-        // until the mic IOProc fires, then normal mix resumes.
-        DispatchQueue.global(qos: .userInitiated).asyncAfter(deadline: .now() + 0.1) { [weak self] in
-            guard let self else { return }
-            try? self.micAdapter.start()
-            self.queue.async {
-                self._micName = self.micAdapter.deviceName
-                self.deviceNamesDidChange?()
-            }
-        }
     }
 
     public func consumerDetached() {

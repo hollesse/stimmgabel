@@ -1,6 +1,5 @@
 import Foundation
 import AudioEngine
-import AVFoundation
 
 /// Central observable state for the menu-bar UI.
 ///
@@ -40,13 +39,6 @@ public final class AppViewModel: ObservableObject {
         self.pipeline      = pipeline
         self.outputAdapter = outputAdapter
 
-        // Request microphone permission early so the TCC grant propagates into the
-        // CoreAudio HAL before the first consumer attaches.  Without this, the first
-        // AVCaptureDevice grant races with AudioDeviceStart → the HAL hangs waiting
-        // for permission confirmation → DriverOutputAdapter.queue deadlocks.
-        if AVCaptureDevice.authorizationStatus(for: .audio) != .authorized {
-            AVCaptureDevice.requestAccess(for: .audio) { _ in }
-        }
 
         pipeline.stateDidChange = { [weak self] newState in
             Task { @MainActor [weak self] in self?.pipelineState = newState }
