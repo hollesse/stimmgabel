@@ -7,13 +7,13 @@ public enum AudioPipelineState: Equatable, Sendable {
     case consumerAttached
 }
 
-/// Coordinates the system-audio capture → SHM data path.
+/// Coordinates the mic + system-audio capture → SHM data path.
 ///
-/// Phase 1: system audio only, no mic, no mute, no render timer.
-/// Audio is written to SHM directly from the IOProc callback so the write
-/// clock is locked to coreaudiod's hardware clock — the same clock the driver
-/// uses for DoIOOperation.  This eliminates the software/hardware clock drift
-/// that caused robotic stuttering when using a DispatchSource render timer.
+/// Phase 2: both mic and system audio, no mute.
+/// System audio's IOProc drives the mix timing (it fires at the hardware
+/// clock rate and is already synchronized with coreaudiod).  The mic feeds
+/// a staging FIFO; when the system audio callback fires it drains matching
+/// mic frames, mixes them in, and writes the result to SHM.
 public final class AudioPipeline: @unchecked Sendable {
 
     private let queue = DispatchQueue(label: "com.innoq.stimmgabel.AudioPipeline.state")
@@ -25,28 +25,55 @@ public final class AudioPipeline: @unchecked Sendable {
     public var consumerActive: Bool { queue.sync { state == .consumerAttached } }
 
     public var currentSystemAudioDeviceName: String {
-        get { queue.sync { _name } }
-        set { queue.sync { _name = newValue } }
+        get { queue.sync { _sysName } }
+        set { queue.sync { _sysName = newValue } }
     }
-    private var _name: String = ""
+    private var _sysName: String = ""
+
+    public var currentMicDeviceName: String {
+        get { queue.sync { _micName } }
+        set { queue.sync { _micName = newValue } }
+    }
+    private var _micName: String = ""
+
     public var deviceNamesDidChange: (() -> Void)?
 
+    // MARK: - Adapters
+
     private let systemAudioAdapter: any UpstreamCaptureAdapter
+    private let micAdapter: any UpstreamCaptureAdapter
+
+    /// FIFO of interleaved mic samples drained on each system-audio IOProc call.
+    private let micStaging = StagingBuffer()
+
+    // MARK: - IPC sink
 
     /// Set by `DriverOutputAdapter` while a consumer is active.
-    /// Called on each IOProc tick with interleaved float32 stereo data + frame count.
     var outputSink: ((Data, UInt32) -> Void)?
 
-    public init(systemAudioAdapter: any UpstreamCaptureAdapter) {
+    // MARK: - Init
+
+    public init(systemAudioAdapter: any UpstreamCaptureAdapter,
+                micAdapter: any UpstreamCaptureAdapter) {
         self.systemAudioAdapter = systemAudioAdapter
-        systemAudioAdapter.onBuffer = { [weak self] buf in self?.forward(buf) }
+        self.micAdapter         = micAdapter
+
+        // System audio drives the mix — its IOProc fires at the hardware clock.
+        systemAudioAdapter.onBuffer = { [weak self] buf in self?.forwardMixed(buf) }
+
+        // Mic feeds the staging FIFO; drained on each system-audio callback.
+        micAdapter.onBuffer = { [weak self] buf in self?.micStaging.store(buf) }
     }
+
+    // MARK: - Consumer lifecycle
 
     public func consumerAttached() {
         queue.sync {
             guard state == .idle else { return }
             try? systemAudioAdapter.start()
-            _name = systemAudioAdapter.deviceName
+            try? micAdapter.start()
+            _sysName = systemAudioAdapter.deviceName
+            _micName = micAdapter.deviceName
             state = .consumerAttached
         }
         deviceNamesDidChange?()
@@ -56,41 +83,48 @@ public final class AudioPipeline: @unchecked Sendable {
         queue.sync {
             guard state == .consumerAttached else { return }
             systemAudioAdapter.stop()
-            _name = systemAudioAdapter.deviceName
+            micAdapter.stop()
+            _sysName = systemAudioAdapter.deviceName
+            _micName = micAdapter.deviceName
             state = .idle
         }
         deviceNamesDidChange?()
     }
 
-    // MARK: - Direct forwarding (replaces render timer + staging buffer)
+    // MARK: - Mix + forward
 
-    /// Called on the IOProc thread when the system-audio adapter delivers a buffer.
-    /// Converts to interleaved float32 and writes directly to the SHM sink.
-    private func forward(_ buf: AVAudioPCMBuffer) {
+    /// Called on the system-audio IOProc thread with each system-audio buffer.
+    /// Drains matching mic samples, mixes, and writes the result to SHM.
+    private func forwardMixed(_ sysBuf: AVAudioPCMBuffer) {
         guard let sink = outputSink else { return }
         guard
-            buf.format.commonFormat == .pcmFormatFloat32,
-            !buf.format.isInterleaved,
-            buf.format.channelCount == 2,
-            buf.frameLength > 0,
-            let ch0 = buf.floatChannelData?[0],
-            let ch1 = buf.floatChannelData?[1]
+            sysBuf.format.commonFormat == .pcmFormatFloat32,
+            !sysBuf.format.isInterleaved,
+            sysBuf.format.channelCount == 2,
+            sysBuf.frameLength > 0,
+            let sysL = sysBuf.floatChannelData?[0],
+            let sysR = sysBuf.floatChannelData?[1]
         else { return }
 
-        let n = Int(buf.frameLength)
+        let n = Int(sysBuf.frameLength)
+
+        // Drain mic samples from FIFO (zeros if mic hasn't delivered yet).
+        let micSamples = micStaging.drain(frameCount: n)  // interleaved L,R,L,R,...
+
+        // Mix: output[i] = sysAudio[i] + mic[i].
+        // The driver computes (L+R)/2 for mono, so both sources contribute equally.
         var interleaved = [Float](repeating: 0, count: n * 2)
         for i in 0..<n {
-            interleaved[i * 2]     = ch0[i]
-            interleaved[i * 2 + 1] = ch1[i]
+            interleaved[i * 2]     = sysL[i] + micSamples[i * 2]
+            interleaved[i * 2 + 1] = sysR[i] + micSamples[i * 2 + 1]
         }
         let data = interleaved.withUnsafeBufferPointer { Data(buffer: $0) }
         sink(data, UInt32(n))
     }
 
-    // MARK: - Legacy mix() for tests that exercise the pipeline directly
+    // MARK: - Legacy mix() for tests
 
-    /// Returns interleaved float32 stereo silence.  Only used by unit tests;
-    /// production code drives writes via `outputSink`.
+    /// Returns silence. Only used by unit tests that exercise the pipeline directly.
     public func mix(frameCount: Int) -> [Float] {
         [Float](repeating: 0, count: frameCount * 2)
     }

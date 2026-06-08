@@ -32,7 +32,8 @@ final class AudioPipelineTests: XCTestCase {
 
     private func makePipeline() -> (AudioPipeline, FakeUpstreamCaptureAdapter) {
         let sysAudio = FakeUpstreamCaptureAdapter()
-        return (AudioPipeline(systemAudioAdapter: sysAudio), sysAudio)
+        let mic      = FakeUpstreamCaptureAdapter()
+        return (AudioPipeline(systemAudioAdapter: sysAudio, micAdapter: mic), sysAudio)
     }
 
     private func makeStereoBuffer(frameCount: Int, value: Float) -> AVAudioPCMBuffer {

@@ -3,7 +3,7 @@ import AudioEngine
 
 /// Central observable state for the menu-bar UI.
 ///
-/// Phase 1: system audio only — no mute toggles, no mic.
+/// Phase 2: mic + system audio, no mute.
 @MainActor
 public final class AppViewModel: ObservableObject {
 
@@ -15,6 +15,10 @@ public final class AppViewModel: ObservableObject {
         consumerActive ? "Active" : "Idle — no app reading"
     }
 
+    public var currentMicDeviceName: String {
+        pipeline.currentMicDeviceName
+    }
+
     public var currentSystemAudioDeviceName: String {
         pipeline.currentSystemAudioDeviceName
     }
@@ -24,12 +28,15 @@ public final class AppViewModel: ObservableObject {
 
     @available(macOS 14.2, *)
     public convenience init() {
-        let pipeline = AudioPipeline(systemAudioAdapter: SystemAudioAdapter())
+        let pipeline = AudioPipeline(
+            systemAudioAdapter: SystemAudioAdapter(),
+            micAdapter: MicAdapter()
+        )
         self.init(pipeline: pipeline, outputAdapter: DriverOutputAdapter(pipeline: pipeline))
     }
 
     public init(pipeline: AudioPipeline, outputAdapter: DriverOutputAdapter? = nil) {
-        self.pipeline = pipeline
+        self.pipeline      = pipeline
         self.outputAdapter = outputAdapter
 
         pipeline.stateDidChange = { [weak self] newState in

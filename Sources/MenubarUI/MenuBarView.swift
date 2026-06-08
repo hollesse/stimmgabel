@@ -2,7 +2,7 @@ import SwiftUI
 
 /// The dropdown content rendered inside `MenuBarExtra`.
 ///
-/// Phase 1: shows consumer status and system audio device name only.
+/// Phase 2: shows consumer status, mic device name, and system audio device name.
 struct MenuBarView: View {
 
     @EnvironmentObject private var viewModel: AppViewModel
@@ -10,6 +10,10 @@ struct MenuBarView: View {
     var body: some View {
         Text(viewModel.consumerActive ? "● Active" : "○ Idle — no app reading")
             .foregroundStyle(viewModel.consumerActive ? Color.primary : Color.secondary)
+            .disabled(true)
+
+        Text("Mic: \(viewModel.currentMicDeviceName.isEmpty ? "—" : viewModel.currentMicDeviceName)")
+            .foregroundStyle(Color.secondary)
             .disabled(true)
 
         Text("System audio: \(viewModel.currentSystemAudioDeviceName.isEmpty ? "—" : viewModel.currentSystemAudioDeviceName)")

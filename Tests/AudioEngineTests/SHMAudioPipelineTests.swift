@@ -56,7 +56,7 @@ final class SHMAudioPipelineTests: XCTestCase {
         sysAudio: FakeUpstreamCaptureAdapter
     ) {
         let s = FakeUpstreamCaptureAdapter()
-        return (AudioPipeline(systemAudioAdapter: s), s)
+        return (AudioPipeline(systemAudioAdapter: s, micAdapter: FakeUpstreamCaptureAdapter()), s)
     }
 
     // MARK: - 1. No buffer → no writeSamples calls (IOProc-driven model)
@@ -293,7 +293,7 @@ final class MicFormatConversionTests: XCTestCase {
         sysAudio: FakeUpstreamCaptureAdapter
     ) {
         let s = FakeUpstreamCaptureAdapter()
-        return (AudioPipeline(systemAudioAdapter: s), s)
+        return (AudioPipeline(systemAudioAdapter: s, micAdapter: FakeUpstreamCaptureAdapter()), s)
     }
 
     // MARK: - Helper: fake input ABL at 24 kHz mono (AirPods HFP)
