@@ -1,5 +1,6 @@
 import AVFAudio
 import Foundation
+import os
 
 /// States of the audio pipeline from the perspective of consumers.
 public enum AudioPipelineState: Equatable, Sendable {
@@ -48,8 +49,9 @@ public final class AudioPipeline: @unchecked Sendable {
 
     // MARK: - IPC sink
 
-    /// Set by `DriverOutputAdapter` while a consumer is active.
     var outputSink: ((Data, UInt32) -> Void)?
+    private var _mixCallCount = 0
+    private let log = Logger(subsystem: "com.innoq.stimmgabel", category: "AudioPipeline")
 
     // MARK: - Init
 
@@ -71,12 +73,26 @@ public final class AudioPipeline: @unchecked Sendable {
         queue.sync {
             guard state == .idle else { return }
             try? systemAudioAdapter.start()
-            try? micAdapter.start()
             _sysName = systemAudioAdapter.deviceName
-            _micName = micAdapter.deviceName
             state = .consumerAttached
         }
         deviceNamesDidChange?()
+
+        // Start the mic adapter asynchronously so it does NOT block the pipeline queue
+        // while AudioDeviceStart contacts coreaudiod.  On macOS 26, starting both the
+        // system-audio aggregate and the mic device simultaneously causes coreaudiod to
+        // time out on one of them (IOWorkLoop 0x3C / ETIMEDOUT).  Staggering the start
+        // avoids this: system audio is up first, mic joins ~100 ms later.
+        // The micStaging FIFO absorbs the startup delay — forwardMixed() gets zeros
+        // until the mic IOProc fires, then normal mix resumes.
+        DispatchQueue.global(qos: .userInitiated).asyncAfter(deadline: .now() + 0.1) { [weak self] in
+            guard let self else { return }
+            try? self.micAdapter.start()
+            self.queue.async {
+                self._micName = self.micAdapter.deviceName
+                self.deviceNamesDidChange?()
+            }
+        }
     }
 
     public func consumerDetached() {
@@ -111,8 +127,15 @@ public final class AudioPipeline: @unchecked Sendable {
         // Drain mic samples from FIFO (zeros if mic hasn't delivered yet).
         let micSamples = micStaging.drain(frameCount: n)  // interleaved L,R,L,R,...
 
+        // Diagnostic: log mic peak every ~94 calls (~1 s) so we can verify data flows.
+        self._mixCallCount += 1
+        if self._mixCallCount % 94 == 1 {
+            let micPeak = micSamples.reduce(0 as Float) { max($0, abs($1)) }
+            let sysPeak = (0..<n).reduce(0 as Float) { max($0, abs(sysL[$1])) }
+            self.log.info("mix #\(self._mixCallCount): sysPeak=\(sysPeak, privacy: .public) micPeak=\(micPeak, privacy: .public)")
+        }
+
         // Mix: output[i] = sysAudio[i] + mic[i].
-        // The driver computes (L+R)/2 for mono, so both sources contribute equally.
         var interleaved = [Float](repeating: 0, count: n * 2)
         for i in 0..<n {
             interleaved[i * 2]     = sysL[i] + micSamples[i * 2]

@@ -117,9 +117,25 @@ public final class MicAdapter: UpstreamCaptureAdapter, @unchecked Sendable {
     ///           `MicAdapterError.noDefaultInputDevice` when no default input exists.
     ///           `MicAdapterError.ioProcRegistrationFailed(status:)` on HAL failure.
     public func start() throws {
-        // TCC check must happen outside the queue because requestAccess is async and
-        // we use a semaphore to block until the system dialog resolves.
-        try requestMicPermission()
+        // TCC check: if permission is already granted, proceed immediately.
+        // If not yet granted (e.g. first launch), request it non-blocking so the
+        // user sees the dialog; we throw permissionDenied only if already denied.
+        // AppViewModel requests permission at startup so by the time a consumer
+        // attaches the grant has propagated into the CoreAudio HAL — avoiding the
+        // race where AudioDeviceStart hangs waiting for HAL-level TCC confirmation.
+        let status = AVCaptureDevice.authorizationStatus(for: .audio)
+        switch status {
+        case .authorized:
+            break  // fast path
+        case .denied, .restricted:
+            os_log(.error, log: log, "Microphone access denied (status %d)", status.rawValue)
+            throw MicAdapterError.permissionDenied
+        default:
+            // notDetermined: fire-and-forget request (AppViewModel already did this;
+            // if we still arrive here, throw and let the next consumer-active retry).
+            AVCaptureDevice.requestAccess(for: .audio) { _ in }
+            throw MicAdapterError.permissionDenied
+        }
 
         try queue.sync {
             guard !isRunning else { return }
