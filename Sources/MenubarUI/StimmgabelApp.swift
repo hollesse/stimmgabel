@@ -29,9 +29,8 @@ public struct StimmgabelApp: App {
         if #available(macOS 14.2, *) {
             _viewModel = StateObject(wrappedValue: AppViewModel())
         } else {
-            let pipeline = AudioPipeline(systemAudioAdapter: SilentAdapter(),
-                                         micAdapter: MicAdapter())
-            _viewModel = StateObject(wrappedValue: AppViewModel(pipeline: pipeline))
+            _viewModel = StateObject(wrappedValue: AppViewModel(
+                pipeline: AudioPipeline(systemAudioAdapter: SilentAdapter())))
         }
     }
 

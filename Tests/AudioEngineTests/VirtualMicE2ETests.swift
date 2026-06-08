@@ -108,7 +108,7 @@ final class VirtualMicE2ETests: XCTestCase {
 
         // ── Pipeline with real SHM ─────────────────────────────────────────
         let sys = FakeUpstreamCaptureAdapter()
-        let pipeline = AudioPipeline(systemAudioAdapter: sys, micAdapter: FakeUpstreamCaptureAdapter())
+        let pipeline = AudioPipeline(systemAudioAdapter: sys)
         let shmConn  = SHMDriverIPCConnection()
         let adapter  = DriverOutputAdapter(pipeline: pipeline, ipc: shmConn)
 
@@ -192,7 +192,7 @@ final class VirtualMicE2ETests: XCTestCase {
         }
 
         let sys = FakeUpstreamCaptureAdapter()
-        let pipeline = AudioPipeline(systemAudioAdapter: sys, micAdapter: FakeUpstreamCaptureAdapter())
+        let pipeline = AudioPipeline(systemAudioAdapter: sys)
         let shmConn  = SHMDriverIPCConnection()
         let adapter  = DriverOutputAdapter(pipeline: pipeline, ipc: shmConn)
 

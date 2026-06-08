@@ -109,7 +109,7 @@ final class E2ETests: XCTestCase {
         // 1. Build the full pipeline with real SHM IPC.
         let mic = FakeUpstreamCaptureAdapter()
         let sys = FakeUpstreamCaptureAdapter()
-        let pipeline = AudioPipeline(systemAudioAdapter: sys, micAdapter: FakeUpstreamCaptureAdapter())
+        let pipeline = AudioPipeline(systemAudioAdapter: sys)
         let shmConn  = SHMDriverIPCConnection()
         let adapter  = DriverOutputAdapter(pipeline: pipeline, ipc: shmConn)
         // DriverOutputAdapter.init() calls shmConn.connect() which opens SHM.
@@ -184,7 +184,7 @@ final class E2ETests: XCTestCase {
 
     func test_e2e_noBuffer_shmStaysSilence() throws {
         let sys = FakeUpstreamCaptureAdapter()
-        let pipeline = AudioPipeline(systemAudioAdapter: sys, micAdapter: FakeUpstreamCaptureAdapter())
+        let pipeline = AudioPipeline(systemAudioAdapter: sys)
         let shmConn  = SHMDriverIPCConnection()
         let adapter  = DriverOutputAdapter(pipeline: pipeline, ipc: shmConn)
 
@@ -215,7 +215,7 @@ final class E2ETests: XCTestCase {
     func test_e2e_writePosAdvancesOnEachTick() throws {
         let mic = FakeUpstreamCaptureAdapter()
         let sys = FakeUpstreamCaptureAdapter()
-        let pipeline = AudioPipeline(systemAudioAdapter: sys, micAdapter: FakeUpstreamCaptureAdapter())
+        let pipeline = AudioPipeline(systemAudioAdapter: sys)
         let shmConn  = SHMDriverIPCConnection()
         let adapter  = DriverOutputAdapter(pipeline: pipeline, ipc: shmConn)
 

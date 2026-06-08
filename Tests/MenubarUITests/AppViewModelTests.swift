@@ -17,7 +17,7 @@ final class AppViewModelTests: XCTestCase {
     private func makePipeline(deviceName: String = "") -> AudioPipeline {
         let adapter = FakeAdapter()
         adapter.deviceName = deviceName
-        let mic = FakeAdapter(); return AudioPipeline(systemAudioAdapter: adapter, micAdapter: mic)
+        return AudioPipeline(systemAudioAdapter: adapter)
     }
 
     // MARK: - Icon

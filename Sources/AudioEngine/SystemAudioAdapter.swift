@@ -5,20 +5,26 @@ import os.log
 
 private let log = OSLog(subsystem: "com.innoq.stimmgabel", category: "SystemAudioAdapter")
 
-/// Captures all system audio via the CoreAudio Process Tap API (ADR 0004).
+/// Captures system audio AND microphone in a single CoreAudio aggregate device.
 ///
-/// Creates a global `CATapDescription` (empty process list, captures all audio on the
-/// default output device) and wraps it in an aggregate device so it presents as a
-/// standard `AudioDeviceID`. Rebinds automatically when the macOS default output device
-/// changes. Delivers buffers in the mix target format (48 kHz / float32 / non-interleaved
-/// stereo) via the `onBuffer` handler.
+/// The aggregate contains:
+///   - A CATapDescription (process tap) that captures the default output device
+///   - The default input device (microphone) as a sub-device and master clock
 ///
-/// Minimum macOS: 14.2 (API availability); 14.4 recommended (stability floor per ADR 0004).
+/// Using a single aggregate avoids the macOS 26 IOWorkLoop 0x3C ETIMEDOUT that
+/// occurs when two separate AudioDeviceStart calls run concurrently.  The mic
+/// indicator in the macOS menu bar appears only while a consumer is recording.
+///
+/// The IOProc delivers combined channels (tap + mic).  `handleIOProc` extracts
+/// them, mixes them (sys_L + mic, sys_R + mic), and calls `onBuffer` with a
+/// 48 kHz / float32 / non-interleaved stereo buffer.
+///
+/// Minimum macOS: 14.2 (API availability); 14.4 recommended (stability floor).
 ///
 /// # Sandbox note
-/// `AudioHardwareCreateProcessTap` is unconfirmed inside the App Sandbox. v1 runs
-/// unsandboxed. If the API fails (OSStatus != noErr), a clear log message is emitted and
-/// `start()` throws `SystemAudioAdapterError.tapCreationFailed`.
+/// `AudioHardwareCreateProcessTap` is unconfirmed inside the App Sandbox.  v1 runs
+/// unsandboxed.  If the API fails (OSStatus != noErr), a clear log message is emitted
+/// and `start()` throws `SystemAudioAdapterError.tapCreationFailed`.
 @available(macOS 14.2, *)
 public final class SystemAudioAdapter: UpstreamCaptureAdapter, @unchecked Sendable {
 
@@ -40,8 +46,13 @@ public final class SystemAudioAdapter: UpstreamCaptureAdapter, @unchecked Sendab
     private var aggregateDeviceID: AudioDeviceID = kAudioObjectUnknown
     private var ioProcID: AudioDeviceIOProcID?
 
-    /// The device the aggregate wraps; tracked so we can rebind on change.
+    /// The output device the tap is bound to; tracked so we can rebind on change.
     private var currentOutputDeviceID: AudioDeviceID = kAudioObjectUnknown
+    /// The input device (microphone) included in the aggregate.
+    private var currentInputDeviceID: AudioDeviceID  = kAudioObjectUnknown
+    /// Number of tap (system-audio) channels in the IOProc ABL.
+    /// Determined on the first IOProc call and used for channel splitting.
+    private var tapChannelCount: Int = 2
 
     /// Retained reference to the property-listener block so we can pass the same
     /// pointer to `AudioObjectRemovePropertyListenerBlock` on teardown.
@@ -112,16 +123,20 @@ public final class SystemAudioAdapter: UpstreamCaptureAdapter, @unchecked Sendab
     // MARK: - Setup / teardown
 
     private func setUp() throws {
-        // 1. Find the current default output device.
+        // 1. Find the current default output and input devices.
         let defaultOutputDevice = try currentDefaultOutputDevice()
         currentOutputDeviceID = defaultOutputDevice
         deviceName = readDeviceName(for: defaultOutputDevice)
 
+        currentInputDeviceID = (try? currentDefaultInputDevice()) ?? kAudioObjectUnknown
+        tapChannelCount = 2   // reset; determined on first IOProc call
+
         // 2. Create the Process Tap.
         tapObjectID = try createTap(boundToOutputDevice: defaultOutputDevice)
 
-        // 3. Wrap the tap in an aggregate device.
-        aggregateDeviceID = try createAggregateDevice(tapObjectID: tapObjectID)
+        // 3. Wrap tap + mic in a single aggregate device.
+        aggregateDeviceID = try createAggregateDevice(tapObjectID: tapObjectID,
+                                                       micDeviceID: currentInputDeviceID)
 
         // 4. Register the IOProc on the aggregate device.
         try registerIOProc()
@@ -211,37 +226,79 @@ public final class SystemAudioAdapter: UpstreamCaptureAdapter, @unchecked Sendab
         return tapObjectID
     }
 
+    // MARK: - Default-input device helper
+
+    private func currentDefaultInputDevice() throws -> AudioDeviceID {
+        var deviceID = AudioDeviceID(kAudioObjectUnknown)
+        var size     = UInt32(MemoryLayout<AudioDeviceID>.size)
+        var address  = AudioObjectPropertyAddress(
+            mSelector: kAudioHardwarePropertyDefaultInputDevice,
+            mScope:    kAudioObjectPropertyScopeGlobal,
+            mElement:  kAudioObjectPropertyElementMain)
+        guard AudioObjectGetPropertyData(AudioObjectID(kAudioObjectSystemObject),
+                                         &address, 0, nil, &size, &deviceID) == noErr,
+              deviceID != kAudioObjectUnknown else {
+            throw SystemAudioAdapterError.noDefaultOutputDevice
+        }
+        return deviceID
+    }
+
+    private func deviceUID(for deviceID: AudioDeviceID) -> String? {
+        var uid: Unmanaged<CFString>?
+        var size    = UInt32(MemoryLayout<Unmanaged<CFString>?>.size)
+        var address = AudioObjectPropertyAddress(
+            mSelector: kAudioDevicePropertyDeviceUID,
+            mScope:    kAudioObjectPropertyScopeGlobal,
+            mElement:  kAudioObjectPropertyElementMain)
+        guard AudioObjectGetPropertyData(deviceID, &address, 0, nil, &size, &uid) == noErr,
+              let result = uid else { return nil }
+        return result.takeRetainedValue() as String
+    }
+
     // MARK: - Aggregate device creation
 
-    private func createAggregateDevice(tapObjectID: AudioObjectID) throws -> AudioDeviceID {
-        // Build the UID string for the tap sub-device.
+    private func createAggregateDevice(tapObjectID: AudioObjectID,
+                                        micDeviceID: AudioDeviceID) throws -> AudioDeviceID {
         guard let tapUID = tapUID(for: tapObjectID) else {
             os_log(.error, log: log, "Could not read UID for tap %d", tapObjectID)
             throw SystemAudioAdapterError.aggregateDeviceCreationFailed(status: -1)
         }
 
-        // Sub-device list: just the tap.
+        // Tap sub-device: needs drift compensation because it has no hardware clock.
         let tapSubDevice: [CFString: Any] = [
-            kAudioSubDeviceUIDKey as CFString: tapUID
+            kAudioSubDeviceUIDKey as CFString:          tapUID,
+            kAudioSubDeviceDriftCompensationKey as CFString: true as CFBoolean,
         ]
 
         // Tap list entry.
-        let tapEntry: [CFString: Any] = [
-            kAudioSubTapUIDKey as CFString: tapUID
-        ]
+        let tapEntry: [CFString: Any] = [kAudioSubTapUIDKey as CFString: tapUID]
 
-        let description: [CFString: Any] = [
+        // Microphone sub-device (optional — gracefully degrade to tap-only if unavailable).
+        let micUID    = micDeviceID != kAudioObjectUnknown ? deviceUID(for: micDeviceID) : nil
+        let hasMic    = micUID != nil
+        let micSubDev: [CFString: Any] = [kAudioSubDeviceUIDKey as CFString: micUID ?? ""]
+
+        // Sub-device list: tap first, then mic.
+        // With mic as master clock the IOProc delivers tap channels first, then mic.
+        var subDeviceList: [[CFString: Any]] = [tapSubDevice]
+        if hasMic { subDeviceList.append(micSubDev) }
+
+        var description: [CFString: Any] = [
             kAudioAggregateDeviceNameKey as CFString:
-                "Stimmgabel System Audio" as CFString,
+                "Stimmgabel" as CFString,
             kAudioAggregateDeviceUIDKey as CFString:
                 "com.innoq.stimmgabel.systemAudioAggregate" as CFString,
-            kAudioAggregateDeviceSubDeviceListKey as CFString:
-                [tapSubDevice] as CFArray,
-            kAudioAggregateDeviceTapListKey as CFString:
-                [tapEntry] as CFArray,
-            kAudioAggregateDeviceTapAutoStartKey as CFString: true as CFBoolean,
-            kAudioAggregateDeviceIsPrivateKey as CFString: true as CFBoolean,
+            kAudioAggregateDeviceSubDeviceListKey as CFString: subDeviceList as CFArray,
+            kAudioAggregateDeviceTapListKey as CFString:       [tapEntry] as CFArray,
+            kAudioAggregateDeviceTapAutoStartKey as CFString:  true as CFBoolean,
+            kAudioAggregateDeviceIsPrivateKey as CFString:     true as CFBoolean,
         ]
+        // Mic drives the master clock; tap follows via drift compensation.
+        if hasMic {
+            description[kAudioAggregateDeviceMainSubDeviceKey as CFString] = micUID!
+        }
+        let logMic = hasMic ? micUID! : "none"
+        os_log(.info, log: log, "Creating aggregate: tap=%{public}@ mic=%{public}@", tapUID, logMic)
 
         var aggregateID = AudioDeviceID(kAudioObjectUnknown)
         let status = AudioHardwareCreateAggregateDevice(
@@ -320,6 +377,8 @@ public final class SystemAudioAdapter: UpstreamCaptureAdapter, @unchecked Sendab
     }
 
     private func setupConverter(for deviceID: AudioDeviceID) {
+        // The new handleIOProc writes directly to the output buffer without a
+        // separate AVAudioConverter; just log the rate for diagnostics.
         var rateAddr = AudioObjectPropertyAddress(
             mSelector: kAudioDevicePropertyNominalSampleRate,
             mScope:    kAudioObjectPropertyScopeGlobal,
@@ -328,22 +387,9 @@ public final class SystemAudioAdapter: UpstreamCaptureAdapter, @unchecked Sendab
         var rate: Float64 = 48_000
         var sz = UInt32(MemoryLayout<Float64>.size)
         AudioObjectGetPropertyData(deviceID, &rateAddr, 0, nil, &sz, &rate)
-
-        // IOProc delivers interleaved stereo at `rate` Hz.
-        let src = AVAudioFormat(commonFormat: .pcmFormatFloat32,
-                                sampleRate: rate,
-                                channels: 2,
-                                interleaved: true)!
-        inputFormat = src
-
-        if rate != 48_000 {
-            converter = AVAudioConverter(from: src, to: SystemAudioAdapter.mixTargetFormat)
-            os_log(.info, log: log,
-                   "Resampler created: %.0f Hz interleaved → 48000 Hz non-interleaved", rate)
-        } else {
-            converter = nil
-            os_log(.info, log: log, "No resampling needed: tap already at 48000 Hz")
-        }
+        os_log(.info, log: log, "Aggregate sample rate: %.0f Hz", rate)
+        converter  = nil
+        inputFormat = nil
     }
 
     // MARK: - IOProc callback
@@ -356,7 +402,7 @@ public final class SystemAudioAdapter: UpstreamCaptureAdapter, @unchecked Sendab
     ) {
         guard let handler = onBuffer else { return }
 
-        let abl = inputData.pointee
+        let abl    = inputData.pointee
         guard abl.mNumberBuffers > 0 else { return }
 
         let firstBuf      = abl.mBuffers
@@ -366,78 +412,72 @@ public final class SystemAudioAdapter: UpstreamCaptureAdapter, @unchecked Sendab
         let frameCount    = bytesPerFrame > 0 ? Int(firstBuf.mDataByteSize / bytesPerFrame) : 0
         guard frameCount > 0 else { return }
 
+        // Log format on first call and detect tap/mic channel split.
         if !didLogFormat {
             didLogFormat = true
-            os_log(.info, log: log,
-                   "IOProc format: nBufs=%d nChPerBuf=%d dataByteSize=%d → frameCount=%d",
-                   nInBufs, nInChPerBuf, firstBuf.mDataByteSize, frameCount)
-        }
-
-        // --- Wrap raw input bytes into an AVAudioPCMBuffer ---
-        // The tap delivers interleaved stereo; build a buffer pointing at the same memory.
-        guard let fmt = inputFormat,
-              let rawBuf = AVAudioPCMBuffer(pcmFormat: fmt,
-                                            frameCapacity: AVAudioFrameCount(frameCount))
-        else { return }
-        rawBuf.frameLength = AVAudioFrameCount(frameCount)
-
-        // Copy interleaved samples into rawBuf's single channel buffer.
-        if let dst = rawBuf.int16ChannelData {
-            _ = dst  // unused — just ensure it's interleaved
-        }
-        // For interleaved format the buffer is accessed via audioBufferList.
-        guard let srcPtr = firstBuf.mData else { return }
-        rawBuf.mutableAudioBufferList.pointee.mNumberBuffers = 1
-        rawBuf.mutableAudioBufferList.pointee.mBuffers.mData = srcPtr
-        rawBuf.mutableAudioBufferList.pointee.mBuffers.mDataByteSize = firstBuf.mDataByteSize
-        rawBuf.mutableAudioBufferList.pointee.mBuffers.mNumberChannels = firstBuf.mNumberChannels
-
-        // --- Convert / resample to 48 kHz non-interleaved stereo ---
-        if let conv = converter {
-            let outFrames = AVAudioFrameCount(
-                Double(frameCount) * 48_000.0 / fmt.sampleRate + 0.5
-            )
-            guard let outBuf = AVAudioPCMBuffer(
-                pcmFormat: SystemAudioAdapter.mixTargetFormat,
-                frameCapacity: outFrames
-            ) else { return }
-
-            var convError: NSError?
-            conv.convert(to: outBuf, error: &convError) { _, outStatus in
-                outStatus.pointee = .haveData
-                return rawBuf
+            var info = "IOProc: nBufs=\(nInBufs)"
+            for i in 0..<min(nInBufs, 4) {
+                let b = audioBuffer(from: abl, at: i)
+                info += " buf[\(i)]: nCh=\(b.mNumberChannels) bytes=\(b.mDataByteSize)"
             }
-            if convError == nil && outBuf.frameLength > 0 {
-                handler(outBuf)
+            os_log(.info, log: log, "%{public}@", info)
+
+            // Determine how many channels belong to the tap.
+            // If mic is in the aggregate the total channel count > 2.
+            // Tap channels = total - mic channels (mic is mono = 1 ch).
+            let totalChannels = nInBufs == 1 ? nInChPerBuf
+                              : (0..<nInBufs).reduce(0) { $0 + Int(audioBuffer(from: abl, at: $1).mNumberChannels) }
+            tapChannelCount = currentInputDeviceID != kAudioObjectUnknown
+                            ? max(2, totalChannels - 1)   // at least 2 tap channels
+                            : totalChannels
+            os_log(.info, log: log,
+                   "Channel split: total=%d tap=%d mic=%d",
+                   totalChannels, tapChannelCount, totalChannels - tapChannelCount)
+        }
+
+        // Extract sys-audio samples (channels 0..tapChannelCount-1) and
+        // mic sample (channel tapChannelCount, if present).
+        guard let outBuf = AVAudioPCMBuffer(
+            pcmFormat: SystemAudioAdapter.mixTargetFormat,
+            frameCapacity: AVAudioFrameCount(frameCount)
+        ) else { return }
+        outBuf.frameLength = AVAudioFrameCount(frameCount)
+
+        let outL = outBuf.floatChannelData![0]
+        let outR = outBuf.floatChannelData![1]
+        let nTot = nInBufs == 1 ? nInChPerBuf : nInBufs   // effective channels
+
+        if nInBufs == 1,
+           let src = firstBuf.mData?.assumingMemoryBound(to: Float32.self) {
+            // Single interleaved buffer: channels are [ch0, ch1, ch2, ...] per frame.
+            let micOffset = tapChannelCount  // 0-based index of mic channel
+            for i in 0..<frameCount {
+                let base = i * nTot
+                let tapL = nTot > 0 ? src[base + 0] : 0
+                let tapR = nTot > 1 ? src[base + 1] : tapL
+                let mic  = nTot > micOffset ? src[base + micOffset] : 0
+                outL[i] = tapL + mic
+                outR[i] = tapR + mic
             }
         } else {
-            // Already 48 kHz — de-interleave directly into the mix-target buffer.
-            guard let outBuf = AVAudioPCMBuffer(
-                pcmFormat: SystemAudioAdapter.mixTargetFormat,
-                frameCapacity: AVAudioFrameCount(frameCount)
-            ) else { return }
-            outBuf.frameLength = AVAudioFrameCount(frameCount)
-
-            let left  = outBuf.floatChannelData![0]
-            let right = outBuf.floatChannelData![1]
-
-            if nInBufs == 1 && nInChPerBuf >= 2,
-               let src = firstBuf.mData?.assumingMemoryBound(to: Float32.self) {
-                for i in 0..<frameCount {
-                    left[i]  = src[i * nInChPerBuf]
-                    right[i] = src[i * nInChPerBuf + 1]
-                }
-            } else if let srcL = firstBuf.mData?.assumingMemoryBound(to: Float32.self) {
-                left.update(from: srcL, count: frameCount)
-                if nInBufs >= 2,
-                   let srcR = audioBuffer(from: abl, at: 1).mData?.assumingMemoryBound(to: Float32.self) {
-                    right.update(from: srcR, count: frameCount)
-                } else {
-                    right.update(from: srcL, count: frameCount)
+            // Non-interleaved or multi-buffer: each AudioBuffer is one channel.
+            func ptr(_ idx: Int) -> UnsafePointer<Float32>? {
+                guard idx < nInBufs else { return nil }
+                return audioBuffer(from: abl, at: idx).mData.map {
+                    UnsafeRawPointer($0).assumingMemoryBound(to: Float32.self)
                 }
             }
-            handler(outBuf)
+            let tapL = ptr(0)
+            let tapR = nInBufs > 1 ? ptr(1) : tapL
+            let mic  = ptr(tapChannelCount)
+            for i in 0..<frameCount {
+                let m = mic?[i] ?? 0
+                outL[i] = (tapL?[i] ?? 0) + m
+                outR[i] = (tapR?[i] ?? 0) + m
+            }
         }
+
+        handler(outBuf)
     }
 
     /// Unsafe helper to index into a fixed-size AudioBufferList.

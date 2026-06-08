@@ -39,7 +39,7 @@ final class IntegrationTests: XCTestCase {
         adapter: DriverOutputAdapter
     ) {
         let sys     = FakeUpstreamCaptureAdapter()
-        let pipeline = AudioPipeline(systemAudioAdapter: sys, micAdapter: FakeUpstreamCaptureAdapter())
+        let pipeline = AudioPipeline(systemAudioAdapter: sys)
         let ipc     = FakeDriverIPCConnection()
         let adapter = DriverOutputAdapter(pipeline: pipeline, ipc: ipc)
         return (pipeline, sys, ipc, adapter)

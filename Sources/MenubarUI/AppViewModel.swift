@@ -3,7 +3,8 @@ import AudioEngine
 
 /// Central observable state for the menu-bar UI.
 ///
-/// Phase 2: mic + system audio, no mute.
+/// Phase 3: system audio + mic captured in one aggregate device inside
+/// SystemAudioAdapter.  No separate MicAdapter.
 @MainActor
 public final class AppViewModel: ObservableObject {
 
@@ -15,10 +16,6 @@ public final class AppViewModel: ObservableObject {
         consumerActive ? "Active" : "Idle — no app reading"
     }
 
-    public var currentMicDeviceName: String {
-        pipeline.currentMicDeviceName
-    }
-
     public var currentSystemAudioDeviceName: String {
         pipeline.currentSystemAudioDeviceName
     }
@@ -28,17 +25,13 @@ public final class AppViewModel: ObservableObject {
 
     @available(macOS 14.2, *)
     public convenience init() {
-        let pipeline = AudioPipeline(
-            systemAudioAdapter: SystemAudioAdapter(),
-            micAdapter: MicAdapter()
-        )
+        let pipeline = AudioPipeline(systemAudioAdapter: SystemAudioAdapter())
         self.init(pipeline: pipeline, outputAdapter: DriverOutputAdapter(pipeline: pipeline))
     }
 
     public init(pipeline: AudioPipeline, outputAdapter: DriverOutputAdapter? = nil) {
         self.pipeline      = pipeline
         self.outputAdapter = outputAdapter
-
 
         pipeline.stateDidChange = { [weak self] newState in
             Task { @MainActor [weak self] in self?.pipelineState = newState }
