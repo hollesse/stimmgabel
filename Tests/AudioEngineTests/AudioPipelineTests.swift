@@ -144,13 +144,14 @@ final class AudioPipelineTests: XCTestCase {
         sysAudio.emitBuffer(makeStereoBuffer(frameCount: 512, value: 0.5))
 
         XCTAssertFalse(received.isEmpty, "outputSink must be called")
-        // Expected: sys(0.5) + mic(0.3) = 0.8 for every sample
+        // Expected: sys(0.5) + mic(0.3) × micGain(2.0) = 1.1 for every sample
+        let expected: Float = 0.5 + 0.3 * pipeline.micGain
         let peak = received.map(abs).max() ?? 0
-        XCTAssertGreaterThan(peak, 0.7,
-            "Mic audio not mixed in — peak=\(peak), expected ≈ 0.8 (0.5 sys + 0.3 mic). " +
+        XCTAssertGreaterThan(peak, 0.5,
+            "Mic audio not mixed in — peak=\(peak). " +
             "Check that micStaging.drain() returns mic samples in forwardMixed().")
-        XCTAssertTrue(received.allSatisfy { abs($0 - 0.8) < 1e-5 },
-            "Expected sys(0.5)+mic(0.3)=0.8, got \(received.prefix(3))")
+        XCTAssertTrue(received.allSatisfy { abs($0 - expected) < 1e-5 },
+            "Expected sys(0.5)+mic(0.3)×gain(\(pipeline.micGain))=\(expected), got \(received.prefix(3))")
     }
 
     func test_mic_withoutSysAudio_doesNotCallOutputSink() {

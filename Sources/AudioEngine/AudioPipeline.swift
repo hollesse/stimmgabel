@@ -47,6 +47,13 @@ public final class AudioPipeline: @unchecked Sendable {
     /// FIFO of interleaved mic samples drained on each system-audio IOProc call.
     private let micStaging = StagingBuffer()
 
+    // MARK: - Gain
+
+    /// Gain multiplier applied to the mic channel before mixing.
+    /// Default 2.0 compensates for the mic input level being lower than the system
+    /// audio tap output (system volume vs macOS input slider at ~50%).
+    public var micGain: Float = 2.0
+
     // MARK: - IPC sink
 
     var outputSink: ((Data, UInt32) -> Void)?
@@ -133,11 +140,11 @@ public final class AudioPipeline: @unchecked Sendable {
             self.log.info("mix #\(self._mixCallCount): sysPeak=\(sysPeak, privacy: .public) micPeak=\(micPeak, privacy: .public)")
         }
 
-        // Mix: output[i] = sysAudio[i] + mic[i].
+        let gain = micGain
         var interleaved = [Float](repeating: 0, count: n * 2)
         for i in 0..<n {
-            interleaved[i * 2]     = sysL[i] + micSamples[i * 2]
-            interleaved[i * 2 + 1] = sysR[i] + micSamples[i * 2 + 1]
+            interleaved[i * 2]     = sysL[i] + micSamples[i * 2]     * gain
+            interleaved[i * 2 + 1] = sysR[i] + micSamples[i * 2 + 1] * gain
         }
         let data = interleaved.withUnsafeBufferPointer { Data(buffer: $0) }
         sink(data, UInt32(n))
