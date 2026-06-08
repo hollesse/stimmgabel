@@ -50,9 +50,10 @@ public final class AudioPipeline: @unchecked Sendable {
     // MARK: - Gain
 
     /// Gain multiplier applied to the mic channel before mixing.
-    /// Default 2.0 compensates for the mic input level being lower than the system
-    /// audio tap output (system volume vs macOS input slider at ~50%).
-    public var micGain: Float = 2.0
+    /// Default 5.0: speech from a built-in mic (~0.05–0.15 amplitude) competes
+    /// with system audio at full volume (~0.3–0.8 amplitude).
+    /// Increase if mic is still inaudible; decrease if it clips (sounds distorted).
+    public var micGain: Float = 5.0
 
     // MARK: - IPC sink
 
