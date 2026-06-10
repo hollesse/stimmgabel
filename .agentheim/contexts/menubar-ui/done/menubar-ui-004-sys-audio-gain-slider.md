@@ -6,7 +6,7 @@ type: feature
 context: menubar-ui
 created: 2026-06-08
 completed: 2026-06-10
-commit:
+commit: 059f89a
 depends_on: []
 blocks: [menubar-ui-005]
 tags: [gain, slider, sys-audio, ui]

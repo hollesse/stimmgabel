@@ -5,6 +5,30 @@ Newest entries on top.
 
 ---
 
+## 2026-06-10 -- Work session ended
+
+**Type:** Work / Session end
+**Completed:** 1 (first-try PASS: 1 [menubar-ui-004], re-dispatched: 0, skipped: 0)
+**Bounced:** 0
+**Failed:** 0
+**Escalated after verification:** 0
+**Commits:** 1 (059f89a menubar-ui-004)
+
+---
+
+## 2026-06-10 -- Task verified and completed: menubar-ui-004 - System audio gain slider
+
+**Type:** Work / Task completion
+**Task:** menubar-ui-004 - System audio gain slider — adjustable output level, no persistence
+**Summary:** Added sysAudioGain: Float (default 1.0, range 0–2) to AudioPipeline applied per-frame in forwardMixed(); AppViewModel exposes it as @Published with didSet propagation; MenuBarView shows a labeled system audio volume slider. 72 tests pass (was 68).
+**Verification:** PASS (iteration 1 — verifier false-positive on orchestrator-owned protocol.md/INDEX.md changes in diff; worker FILE_LIST confirmed those were orchestrator changes)
+**Commit:** 059f89a
+**Files changed:** 5
+**Tests added:** 6 (4 AudioPipelineTests + 2 AppViewModelTests)
+**ADRs written:** none
+
+---
+
 ## 2026-06-10 -- Batch started: [menubar-ui-004]
 
 **Type:** Work / Batch start
