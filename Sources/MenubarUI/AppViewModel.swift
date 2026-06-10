@@ -14,6 +14,12 @@ public final class AppViewModel: ObservableObject {
         didSet { pipeline.sysAudioGain = sysAudioGain }
     }
 
+    /// Mic gain, range 0.0–6.0. Default 3.0 (normalized: 100%), not persisted.
+    /// Formula for display: Int(micGain / 3.0 * 100)%.
+    @Published public var micGain: Float = 3.0 {
+        didSet { pipeline.micGain = micGain }
+    }
+
     public var consumerActive: Bool { pipelineState == .consumerAttached }
 
     public var consumerStatusDisplayString: String {

@@ -78,4 +78,20 @@ final class AppViewModelTests: XCTestCase {
         XCTAssertEqual(pipeline.sysAudioGain, 0.5, accuracy: 1e-5,
                        "Setting sysAudioGain on AppViewModel must propagate to pipeline")
     }
+
+    // MARK: - micGain
+
+    func test_micGain_defaultIsThree() {
+        let vm = AppViewModel(pipeline: makePipeline())
+        XCTAssertEqual(vm.micGain, 3.0, accuracy: 1e-5,
+                       "micGain must default to 3.0 on every app start")
+    }
+
+    func test_micGain_setOnViewModel_updatesPipeline() {
+        let pipeline = makePipeline()
+        let vm = AppViewModel(pipeline: pipeline)
+        vm.micGain = 1.5
+        XCTAssertEqual(pipeline.micGain, 1.5, accuracy: 1e-5,
+                       "Setting micGain on AppViewModel must propagate to pipeline")
+    }
 }

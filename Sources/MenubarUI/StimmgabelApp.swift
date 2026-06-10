@@ -45,5 +45,6 @@ public struct StimmgabelApp: App {
             // from @Published properties (ADR 0007).
             Image(systemName: viewModel.menuBarIconName)
         }
+        .menuBarExtraStyle(.window)
     }
 }
