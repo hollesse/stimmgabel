@@ -6,7 +6,7 @@ type: feature
 context: menubar-ui
 created: 2026-06-08
 completed: 2026-06-10
-commit:
+commit: 5622639
 depends_on: []
 blocks: []
 tags: [gain, slider, mic, ui]

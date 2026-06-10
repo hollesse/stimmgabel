@@ -8,6 +8,58 @@ Newest entries on top.
 ## 2026-06-10 -- Work session ended
 
 **Type:** Work / Session end
+**Completed:** 1 (first-try PASS: 0, re-dispatched: 1 [menubar-ui-005 — iteration 1 caught missing README update, iteration 2 passed], skipped: 0)
+**Bounced:** 0
+**Failed:** 0
+**Escalated after verification:** 0
+**Commits:** 1 (5622639 menubar-ui-005)
+
+---
+
+## 2026-06-10 -- Task verified and completed: menubar-ui-005 - Mic gain slider
+
+**Type:** Work / Task completion
+**Task:** menubar-ui-005 - Mic gain slider — adjustable mic level, normalized to default, no persistence
+**Summary:** AppViewModel gained micGain: Float = 3.0 with didSet propagation; MenuBarView shows a "Mic volume" slider (0–200%, normalized: 3.0 = 100%) below the sys audio slider; README updated. 75 tests pass.
+**Verification:** PASS (iteration 2 — iteration 1 caught missing README update)
+**Commit:** 5622639
+**Files changed:** 4 (AppViewModel, MenuBarView, AppViewModelTests + README)
+**Tests added:** 2
+**ADRs written:** none
+
+---
+
+## 2026-06-10 -- Verification failed: menubar-ui-005 - Mic gain slider
+
+**Type:** Work / Verification failure
+**Task:** menubar-ui-005 - Mic gain slider
+**Iteration:** 1 of 3
+**Reasons:** BC README not updated — README still headed "menubar-ui-004"; micGain property and Mic volume slider not catalogued
+**Iteration hint:** likely-fixable
+**Next:** re-dispatched worker
+
+---
+
+## 2026-06-10 -- Batch started: [menubar-ui-005]
+
+**Type:** Work / Batch start
+**Tasks:** menubar-ui-005 - Mic gain slider — adjustable mic level, normalized to default, no persistence
+**Parallel:** no (1 worker)
+
+---
+
+## 2026-06-10 -- Model / Promoted: menubar-ui-005 - Mic gain slider
+
+**Type:** Model / Promote
+**BC:** menubar-ui
+**From → To:** backlog → todo
+**Summary:** Refined spec: display normalized to default (3.0 = 100%), range 0–6 step 0.3, prior_art links menubar-ui-004; dependency on menubar-ui-004 cleared (now done).
+
+---
+
+## 2026-06-10 -- Work session ended
+
+**Type:** Work / Session end
 **Completed:** 1 (first-try PASS: 1 [menubar-ui-004], re-dispatched: 0, skipped: 0)
 **Bounced:** 0
 **Failed:** 0

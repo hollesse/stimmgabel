@@ -10,10 +10,10 @@ research touching this BC, and concept synthesis pages.
 ## Tasks by status
 
 <!-- task-counts:start -->
-- **Backlog:** 1
+- **Backlog:** 0
 - **Todo:** 0
 - **Doing:** 0
-- **Done:** 4
+- **Done:** 5
 <!-- task-counts:end -->
 
 ### Todo
@@ -26,6 +26,7 @@ research touching this BC, and concept synthesis pages.
 
 ### Done (most recent first; older entries kept for prior-art search)
 <!-- done-list:start -->
+- **menubar-ui-005** — Mic gain slider — adjustable mic level, normalized to default, no persistence — `done/menubar-ui-005-mic-gain-slider.md`
 - **menubar-ui-004** — System audio gain slider — adjustable output level, no persistence — `done/menubar-ui-004-sys-audio-gain-slider.md`
 - **menubar-ui-003** — Status indicator — consumer attached state and current device names in the dropdown — `done/menubar-ui-003-status-indicator.md`
 - **menubar-ui-002** — Mute toggles — wire mic-side and system-audio-side mute to AudioPipeline, persist via UserDefaults — `done/menubar-ui-002-mute-toggles-and-persistence.md`
