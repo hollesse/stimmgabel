@@ -514,3 +514,14 @@ Dependency chain: 003/004 → 005 → 006 (parallel with i-008) → menubar task
 - First-run permissions UX (microphone TCC prompt, Audio Server Plugin install confirmation, optional "Add to login items") is a future `menubar-ui/todo/` feature task, intentionally not made part of any decision ADR.
 
 ---
+
+## 2026-06-08 20:35 -- Model / Captured: audio-engine-007 - Architectural reset Phase 1/2
+
+**Type:** Model / Capture
+**BC:** audio-engine
+**Filed to:** done (completed work documentation)
+**Summary:** Documents the Phase 1/2 architectural reset: removal of mute/render-timer,
+driver mono-device fix, sequential gReadPos, and AVAudioEngine mic adoption.
+Supersedes audio-engine-002, -004, -005 and menubar-ui-001, -002.
+
+---

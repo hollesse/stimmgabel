@@ -14,6 +14,8 @@ related_adrs: [0010]
 related_research: []
 prior_art: []
 ---
+> **⚠ Superseded** by [audio-engine-007](audio-engine-007-phase1-phase2-architectural-reset.md) — Phase 1/2 architectural reset (2026-06-08).
+
 
 ## Why
 The audio-engine README leaves explicitly open whether mute should also suspend the muted side's upstream capture. The user accepts the v1 default ("zero in the mix") but does not want it to foreclose v2's stronger behaviour ("suspend capture on mute" — so the macOS mic indicator turns off when only the mic is muted). This task captures the v1 decision **and** the architectural constraints v1 must respect to keep v2 a small, localised change.

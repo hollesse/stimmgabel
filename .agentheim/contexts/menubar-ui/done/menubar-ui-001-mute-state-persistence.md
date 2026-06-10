@@ -14,6 +14,8 @@ related_adrs: [0007]
 related_research: []
 prior_art: []
 ---
+> **⚠ Superseded** by [audio-engine-007](../../audio-engine/done/audio-engine-007-phase1-phase2-architectural-reset.md) — Phase 1/2 architectural reset (2026-06-08).
+
 
 ## Why
 The vision lists mute persistence as an assumed-yes open question. Resolving it BC-locally now (only `menubar-ui` cares about user-visible state surviving restarts) keeps the decision in the right place and gives the worker a clear contract.

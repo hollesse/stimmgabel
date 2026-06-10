@@ -14,6 +14,8 @@ related_adrs: [0006, 0009]
 related_research: []
 prior_art: [audio-engine-001]
 ---
+> **⚠ Superseded** by [audio-engine-007](audio-engine-007-phase1-phase2-architectural-reset.md) — Phase 1/2 architectural reset (2026-06-08).
+
 
 ## Why
 
