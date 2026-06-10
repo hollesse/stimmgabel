@@ -62,4 +62,20 @@ final class AppViewModelTests: XCTestCase {
         let vm = AppViewModel(pipeline: pipeline)
         XCTAssertEqual(vm.currentSystemAudioDeviceName, "MacBook Pro Speakers")
     }
+
+    // MARK: - sysAudioGain
+
+    func test_sysAudioGain_defaultIsOne() {
+        let vm = AppViewModel(pipeline: makePipeline())
+        XCTAssertEqual(vm.sysAudioGain, 1.0, accuracy: 1e-5,
+                       "sysAudioGain must default to 1.0 on every app start")
+    }
+
+    func test_sysAudioGain_setOnViewModel_updatesPipeline() {
+        let pipeline = makePipeline()
+        let vm = AppViewModel(pipeline: pipeline)
+        vm.sysAudioGain = 0.5
+        XCTAssertEqual(pipeline.sysAudioGain, 0.5, accuracy: 1e-5,
+                       "Setting sysAudioGain on AppViewModel must propagate to pipeline")
+    }
 }

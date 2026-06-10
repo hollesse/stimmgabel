@@ -118,9 +118,46 @@ final class AudioPipelineTests: XCTestCase {
         pipeline.consumerAttached()
         sysAudio.emitBuffer(makeStereoBuffer(frameCount: 512, value: 0.5))
         XCTAssertFalse(received.isEmpty, "outputSink must be called when sys audio arrives")
-        // All samples should be ≈ 0.5 (sys only, no mic)
-        XCTAssertTrue(received.allSatisfy { abs($0 - 0.5) < 1e-5 },
-                      "Expected sys audio 0.5, got \(received.prefix(3))")
+        // sysAudioGain defaults to 1.0, so sys audio 0.5 × 1.0 = 0.5 (no mic)
+        let expectedSysValue: Float = 0.5 * pipeline.sysAudioGain
+        XCTAssertTrue(received.allSatisfy { abs($0 - expectedSysValue) < 1e-5 },
+                      "Expected sys audio \(expectedSysValue), got \(received.prefix(3))")
+    }
+
+    func test_sysAudioGain_default_isOne() {
+        let (pipeline, _) = makePipeline()
+        XCTAssertEqual(pipeline.sysAudioGain, 1.0, accuracy: 1e-5,
+                       "sysAudioGain default must be 1.0")
+    }
+
+    func test_sysAudioGain_zero_silencesSysAudio() {
+        let (pipeline, sysAudio) = makePipeline()
+        var received: [Float] = []
+        pipeline.outputSink = { data, _ in
+            data.withUnsafeBytes { received = Array($0.bindMemory(to: Float.self)) }
+        }
+        pipeline.sysAudioGain = 0.0
+        pipeline.consumerAttached()
+        sysAudio.emitBuffer(makeStereoBuffer(frameCount: 512, value: 0.5))
+        XCTAssertFalse(received.isEmpty, "outputSink must be called")
+        // sys gain=0.0, no mic → all samples must be 0.0
+        XCTAssertTrue(received.allSatisfy { abs($0) < 1e-5 },
+                      "Expected silence with sysAudioGain=0.0, got \(received.prefix(3))")
+    }
+
+    func test_sysAudioGain_two_doublesSysAudio() {
+        let (pipeline, sysAudio) = makePipeline()
+        var received: [Float] = []
+        pipeline.outputSink = { data, _ in
+            data.withUnsafeBytes { received = Array($0.bindMemory(to: Float.self)) }
+        }
+        pipeline.sysAudioGain = 2.0
+        pipeline.consumerAttached()
+        sysAudio.emitBuffer(makeStereoBuffer(frameCount: 512, value: 0.3))
+        XCTAssertFalse(received.isEmpty, "outputSink must be called")
+        // sys(0.3) × gain(2.0) = 0.6, no mic
+        XCTAssertTrue(received.allSatisfy { abs($0 - 0.6) < 1e-5 },
+                      "Expected 0.6 with sysAudioGain=2.0, got \(received.prefix(3))")
     }
 
     func test_mic_reachesOutput_mixedWithSysAudio() {

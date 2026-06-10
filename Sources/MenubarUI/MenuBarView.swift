@@ -22,6 +22,19 @@ struct MenuBarView: View {
 
         Divider()
 
+        VStack(alignment: .leading, spacing: 2) {
+            Text("System audio volume: \(Int(viewModel.sysAudioGain * 100))%")
+                .foregroundStyle(Color.secondary)
+                .font(.caption)
+            Slider(value: $viewModel.sysAudioGain, in: 0...2, step: 0.1)
+                .controlSize(.small)
+                .frame(minWidth: 160)
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+
+        Divider()
+
         Button("Quit") {
             NSApplication.shared.terminate(nil)
         }

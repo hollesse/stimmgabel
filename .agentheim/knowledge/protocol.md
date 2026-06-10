@@ -5,6 +5,14 @@ Newest entries on top.
 
 ---
 
+## 2026-06-10 -- Batch started: [menubar-ui-004]
+
+**Type:** Work / Batch start
+**Tasks:** menubar-ui-004 - System audio gain slider — adjustable output level, no persistence
+**Parallel:** no (1 worker)
+
+---
+
 ## 2026-06-05 23:15 -- Work session ended
 
 **Type:** Work / Session end

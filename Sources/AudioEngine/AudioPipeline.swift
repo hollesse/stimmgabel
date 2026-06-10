@@ -55,6 +55,11 @@ public final class AudioPipeline: @unchecked Sendable {
     /// Increase if mic is still inaudible; decrease if it clips (sounds distorted).
     public var micGain: Float = 3.0
 
+    /// Gain multiplier applied to the system audio channel before mixing.
+    /// Range 0.0–2.0. Default 1.0 (unity — no boost or attenuation).
+    /// Not persisted; resets to 1.0 on every app start.
+    public var sysAudioGain: Float = 1.0
+
     // MARK: - IPC sink
 
     var outputSink: ((Data, UInt32) -> Void)?
@@ -142,10 +147,11 @@ public final class AudioPipeline: @unchecked Sendable {
         }
 
         let gain = micGain
+        let sysGain = sysAudioGain
         var interleaved = [Float](repeating: 0, count: n * 2)
         for i in 0..<n {
-            interleaved[i * 2]     = sysL[i] + micSamples[i * 2]     * gain
-            interleaved[i * 2 + 1] = sysR[i] + micSamples[i * 2 + 1] * gain
+            interleaved[i * 2]     = sysL[i] * sysGain + micSamples[i * 2]     * gain
+            interleaved[i * 2 + 1] = sysR[i] * sysGain + micSamples[i * 2 + 1] * gain
         }
         let data = interleaved.withUnsafeBufferPointer { Data(buffer: $0) }
         sink(data, UInt32(n))

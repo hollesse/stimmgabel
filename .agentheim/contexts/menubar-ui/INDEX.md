@@ -11,18 +11,18 @@ research touching this BC, and concept synthesis pages.
 
 <!-- task-counts:start -->
 - **Backlog:** 1
-- **Todo:** 1
-- **Doing:** 0
+- **Todo:** 0
+- **Doing:** 1
 - **Done:** 3
 <!-- task-counts:end -->
 
 ### Todo
 <!-- todo-list:start -->
-- **menubar-ui-004** — System audio gain slider — adjustable output level, no persistence — `todo/menubar-ui-004-sys-audio-gain-slider.md`
 <!-- todo-list:end -->
 
 ### Doing
 <!-- doing-list:start -->
+- **menubar-ui-004** — System audio gain slider — adjustable output level, no persistence — `doing/menubar-ui-004-sys-audio-gain-slider.md`
 <!-- doing-list:end -->
 
 ### Done (most recent first; older entries kept for prior-art search)

@@ -44,7 +44,7 @@ Tactical modelling pending. Likely a single small aggregate:
 
 ## Implementation status
 
-### What exists (menubar-ui-003)
+### What exists (menubar-ui-004)
 
 - `MutePreferences` — value type backed by `UserDefaults`. Keys: `com.innoq.stimmgabel.muteMicSide`, `com.innoq.stimmgabel.muteSystemAudioSide`. Defaults to `false` for both sides.
 - `AppViewModel` — `@MainActor ObservableObject`. Holds `AudioPipeline` and `DriverOutputAdapter`. On init: reads persisted mute, applies to pipeline. On toggle: persists + calls `AudioPipeline.setSideMute`. Exposes:
@@ -57,6 +57,9 @@ Tactical modelling pending. Likely a single small aggregate:
 - `MenuBarView` — status section (consumer status + device names) above the mute toggles, then mute toggles ("Mic", "System audio"), separator, Quit.
 - `AudioPipeline` exposes `consumerActive`, `currentMicDeviceName`, `currentSystemAudioDeviceName` (plain readable properties updated on consumer attach/detach). `deviceNamesDidChange` callback notifies `AppViewModel` when device names update.
 - `UpstreamCaptureAdapter` protocol now includes `deviceName: String`. `MicAdapter` and `SystemAudioAdapter` populate it from `kAudioDevicePropertyDeviceName` via CoreAudio.
+- `AudioPipeline.sysAudioGain: Float` (default 1.0, range 0.0–2.0) multiplies the system audio channel in `forwardMixed()`. Not persisted — resets to 1.0 on every app start.
+- `AppViewModel.sysAudioGain: @Published Float` proxies to `pipeline.sysAudioGain` via `didSet`.
+- `MenuBarView` shows a labeled "System audio volume" slider (0–200%) above Quit.
 
 ### Icon states (implemented)
 
@@ -73,7 +76,9 @@ Dropdown layout (from top to bottom):
 4. Divider
 5. Mic / System audio mute toggles
 6. Divider
-7. Quit
+7. System audio volume slider (0–200%, default 100%) — implemented in menubar-ui-004
+8. Divider
+9. Quit
 
 ## Open questions
 - Mute-state persistence across app restart / reboot — **resolved**: `UserDefaults.standard` behind `MutePreferences` (ADR 0007). **Implemented** in menubar-ui-002.

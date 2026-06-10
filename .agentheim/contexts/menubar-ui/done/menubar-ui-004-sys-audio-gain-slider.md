@@ -1,11 +1,11 @@
 ---
 id: menubar-ui-004
 title: System audio gain slider — adjustable output level, no persistence
-status: todo
+status: done
 type: feature
 context: menubar-ui
 created: 2026-06-08
-completed:
+completed: 2026-06-10
 commit:
 depends_on: []
 blocks: [menubar-ui-005]
@@ -47,14 +47,25 @@ Expose it via `AppViewModel` and wire it to a `Slider` in `MenuBarView`.
 
 ## Acceptance criteria
 
-- [ ] Slider visible in menu bar dropdown when consumer is active
-- [ ] Moving slider to 0.0 silences system audio (mic still audible)
-- [ ] Moving slider to 2.0 doubles system audio amplitude
-- [ ] Default 1.0 on every app start (no UserDefaults read)
-- [ ] Tests green (68+)
+- [x] Slider visible in menu bar dropdown when consumer is active
+- [x] Moving slider to 0.0 silences system audio (mic still audible)
+- [x] Moving slider to 2.0 doubles system audio amplitude
+- [x] Default 1.0 on every app start (no UserDefaults read)
+- [x] Tests green (72 — was 68)
 
 ## Notes
 
 - Pattern is identical to `micGain` which already exists — minimal effort.
 - Range 0.0–2.0 is intentional: > 1.0 allows boosting quiet content.
 - Mic slider (menubar-ui-005) follows the same pattern after this lands.
+
+## Outcome
+
+`AudioPipeline` gained `sysAudioGain: Float = 1.0` applied per-frame in `forwardMixed()`. `AppViewModel` exposes it as a `@Published` property with a `didSet` that propagates to the pipeline. `MenuBarView` shows a labeled slider (0–200%) in the dropdown above Quit. Four new unit tests cover default value, zero (silence), 2x doubling, and ViewModel-to-pipeline propagation. 72 tests pass.
+
+Key files:
+- `Sources/AudioEngine/AudioPipeline.swift`
+- `Sources/MenubarUI/AppViewModel.swift`
+- `Sources/MenubarUI/MenuBarView.swift`
+- `Tests/AudioEngineTests/AudioPipelineTests.swift`
+- `Tests/MenubarUITests/AppViewModelTests.swift`

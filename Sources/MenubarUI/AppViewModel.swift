@@ -9,6 +9,11 @@ public final class AppViewModel: ObservableObject {
 
     @Published public internal(set) var pipelineState: AudioPipelineState = .idle
 
+    /// System audio gain, range 0.0–2.0. Default 1.0, not persisted.
+    @Published public var sysAudioGain: Float = 1.0 {
+        didSet { pipeline.sysAudioGain = sysAudioGain }
+    }
+
     public var consumerActive: Bool { pipelineState == .consumerAttached }
 
     public var consumerStatusDisplayString: String {
