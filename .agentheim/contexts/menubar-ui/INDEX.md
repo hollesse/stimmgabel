@@ -10,14 +10,15 @@ research touching this BC, and concept synthesis pages.
 ## Tasks by status
 
 <!-- task-counts:start -->
-- **Backlog:** 0
-- **Todo:** 0
+- **Backlog:** 1
+- **Todo:** 1
 - **Doing:** 0
 - **Done:** 3
 <!-- task-counts:end -->
 
 ### Todo
 <!-- todo-list:start -->
+- **menubar-ui-004** — System audio gain slider — adjustable output level, no persistence — `todo/menubar-ui-004-sys-audio-gain-slider.md`
 <!-- todo-list:end -->
 
 ### Doing
@@ -33,6 +34,7 @@ research touching this BC, and concept synthesis pages.
 
 ### Backlog
 <!-- backlog-list:start -->
+- **menubar-ui-005** — Mic gain slider — adjustable mic level, no persistence — `backlog/menubar-ui-005-mic-gain-slider.md`
 <!-- backlog-list:end -->
 
 ## ADRs scoped to this BC
