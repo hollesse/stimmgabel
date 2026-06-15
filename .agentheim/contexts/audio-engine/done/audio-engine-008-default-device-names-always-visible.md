@@ -6,7 +6,7 @@ type: feature
 context: audio-engine
 created: 2026-06-15
 completed: 2026-06-15
-commit:
+commit: 7bd4d42
 depends_on: []
 blocks: []
 tags: [device-names, hal, property-listener, ui-data]

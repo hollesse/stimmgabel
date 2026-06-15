@@ -13,7 +13,7 @@ research touching this BC, and concept synthesis pages.
 - **Backlog:** 0
 - **Todo:** 0
 - **Doing:** 0
-- **Done:** 7
+- **Done:** 8
 <!-- task-counts:end -->
 
 ### Todo
@@ -26,6 +26,7 @@ research touching this BC, and concept synthesis pages.
 
 ### Done (most recent first; older entries kept for prior-art search)
 <!-- done-list:start -->
+- **audio-engine-008** — Device names always visible — read system defaults independent of consumer attachment — `done/audio-engine-008-default-device-names-always-visible.md`
 - **audio-engine-007** — Architectural reset — Phase 1/2 simplification and driver stabilisation — `done/audio-engine-007-phase1-phase2-architectural-reset.md`
 - **audio-engine-006** — Output adapter — XPC client that writes mix frames into the driver ring buffer and handles lazy activation — `done/audio-engine-006-output-adapter-ipc-client.md`
 - **audio-engine-005** — Mix — combine mic side and system-audio side into a single float32 stereo buffer — `done/audio-engine-005-mix-both-sides.md`

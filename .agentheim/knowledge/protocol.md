@@ -5,6 +5,47 @@ Newest entries on top.
 
 ---
 
+## 2026-06-15 10:38 -- Work session ended
+
+**Type:** Work / Session end
+**Completed:** 1 (first-try PASS: 1 [audio-engine-008], re-dispatched: 0, skipped: 0)
+**Bounced:** 0
+**Failed:** 0
+**Escalated after verification:** 0
+**Commits:** 1 (7bd4d42 audio-engine-008)
+
+---
+
+## 2026-06-15 10:38 -- Task verified and completed: audio-engine-008 - Device names always visible
+
+**Type:** Work / Task completion
+**Task:** audio-engine-008 - Device names always visible — read system defaults independent of consumer attachment
+**Summary:** New DefaultDeviceMonitor observes default input + output via HAL property listeners on the system object, independent of capture lifecycle. AudioPipeline.currentMicDeviceName / currentSystemAudioDeviceName delegate to the monitor. Plug AirPods → names update in dropdown within ~1 s without restart.
+**Verification:** PASS (iteration 1)
+**Commit:** 7bd4d42
+**Files changed:** 6 (DefaultDeviceMonitor + tests new; AudioPipeline / MicAdapter / AppViewModelTests + audio-engine README modified)
+**Tests added:** 12 (75 → 87 total)
+**ADRs written:** none
+
+---
+
+## 2026-06-15 10:31 -- Batch started: [audio-engine-008]
+
+**Type:** Work / Batch start
+**Tasks:** audio-engine-008 - Device names always visible — read system defaults independent of consumer attachment
+**Parallel:** no (1 worker)
+
+---
+
+## 2026-06-15 10:26 -- Model / Captured: audio-engine-008 - Device names always visible
+
+**Type:** Model / Capture
+**BC:** audio-engine
+**Filed to:** todo
+**Summary:** Mic + System-audio device names should be visible in the dropdown regardless of consumer attachment. New DefaultDeviceMonitor uses HAL property listeners on kAudioHardwarePropertyDefault{Input,Output}Device; AudioPipeline delegates currentMic/SystemAudioDeviceName to it. Extends ADR 0006 pattern to also feed the UI in idle state.
+
+---
+
 ## 2026-06-10 -- Work session ended
 
 **Type:** Work / Session end
