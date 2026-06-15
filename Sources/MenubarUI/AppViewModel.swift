@@ -39,9 +39,18 @@ public final class AppViewModel: ObservableObject {
 
     @available(macOS 14.2, *)
     public convenience init() {
+        // Request mic permission early so the system dialog appears before any
+        // consumer attaches. installTap in MicAdapter.start() is gated on .authorized.
+        MicAdapter.requestPermission()
+        let mic = MicAdapter()
+        // Pre-install the tap now (deferred to next runloop tick inside prepare())
+        // so consumer-attach only pays engine.start() cost (~400ms) instead of
+        // also installTap (~450ms). Cuts the consumer-attach mic latency roughly
+        // in half.
+        mic.prepare()
         let pipeline = AudioPipeline(
             systemAudioAdapter: SystemAudioAdapter(),
-            micAdapter: MicAdapter()
+            micAdapter: mic
         )
         self.init(pipeline: pipeline, outputAdapter: DriverOutputAdapter(pipeline: pipeline))
     }

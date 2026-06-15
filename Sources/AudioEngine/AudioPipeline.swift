@@ -83,18 +83,10 @@ public final class AudioPipeline: @unchecked Sendable {
     // MARK: - Consumer lifecycle
 
     public func consumerAttached() {
-        queue.sync {
-            guard state == .idle else { return }
-            // System audio starts first (blocking, ~1 s) — consumer hears it immediately.
-            try? systemAudioAdapter.start()
-            _sysName = systemAudioAdapter.deviceName
-            state = .consumerAttached
-        }
-        deviceNamesDidChange?()
-
-        // Mic starts in the background — no blocking, mic audio joins the mix ~1–2 s later.
-        // The micStaging FIFO delivers zeros until mic frames arrive (silence in mic channel).
-        // Engine.stop() in MicAdapter.stop() ensures the indicator disappears on detach.
+        // Kick off mic start in parallel with system audio start. Both take roughly
+        // the same time (~0.5–1 s) so running them sequentially doubles the
+        // perceived latency. Dispatched first so it gets a head start while the
+        // sync block below runs system audio.
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             guard let self else { return }
             try? self.micAdapter.start()
@@ -104,6 +96,14 @@ public final class AudioPipeline: @unchecked Sendable {
                 self.deviceNamesDidChange?()
             }
         }
+
+        queue.sync {
+            guard state == .idle else { return }
+            try? systemAudioAdapter.start()
+            _sysName = systemAudioAdapter.deviceName
+            state = .consumerAttached
+        }
+        deviceNamesDidChange?()
     }
 
     public func consumerDetached() {

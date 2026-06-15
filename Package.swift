@@ -13,8 +13,13 @@ let package = Package(
     ],
     targets: [
         .target(
+            name: "AudioEngineBridge",
+            path: "Sources/AudioEngineBridge",
+            publicHeadersPath: "."
+        ),
+        .target(
             name: "AudioEngine",
-            dependencies: ["DriverIPC"],
+            dependencies: ["DriverIPC", "AudioEngineBridge"],
             path: "Sources/AudioEngine",
             linkerSettings: [
                 .linkedFramework("CoreAudio"),

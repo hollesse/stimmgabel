@@ -1,5 +1,8 @@
 import AVFAudio
 import Foundation
+import os.log
+
+private let stagingLog = OSLog(subsystem: "com.innoq.stimmgabel", category: "StagingBuffer")
 
 /// Thread-safe FIFO of interleaved float32 stereo samples.
 ///
@@ -10,6 +13,8 @@ final class StagingBuffer: @unchecked Sendable {
 
     private var lock    = os_unfair_lock()
     private var samples = [Float]()          // interleaved L,R,L,R,...
+    private var underrunCount = 0
+    private var drainCount    = 0
 
     /// Append all frames from a non-interleaved float32 stereo buffer.
     func store(_ buffer: AVAudioPCMBuffer) {
@@ -32,8 +37,11 @@ final class StagingBuffer: @unchecked Sendable {
 
         os_unfair_lock_lock(&lock)
         samples.append(contentsOf: interleaved)
-        // Cap backlog at 4096 stereo frames (85 ms) to prevent unbounded growth.
-        let maxSamples = 4096 * 2
+        // Cap backlog at 12000 stereo frames (250 ms) to prevent unbounded growth.
+        // Must comfortably exceed a single mic burst: AirPods deliver 4800-frame
+        // (100 ms) buffers at once, while system audio drains in ~512-frame
+        // chunks — a smaller cap would truncate mid-burst and cause stuttering.
+        let maxSamples = 12_000 * 2
         if samples.count > maxSamples {
             samples.removeFirst(samples.count - maxSamples)
         }
@@ -50,6 +58,16 @@ final class StagingBuffer: @unchecked Sendable {
         if available > 0 { samples.removeFirst(available) }
         os_unfair_lock_unlock(&lock)
 
+        drainCount += 1
+        if result.count < needed {
+            underrunCount += 1
+            // Log every underrun for the first 200 drains, then every 100th
+            if underrunCount <= 10 || drainCount % 100 == 0 {
+                os_log(.error, log: stagingLog,
+                       "FIFO underrun #%d (drain #%d): had %d need %d samples",
+                       underrunCount, drainCount, result.count, needed)
+            }
+        }
         if result.count == needed { return result }
         var padded = result
         padded.append(contentsOf: [Float](repeating: 0, count: needed - result.count))
