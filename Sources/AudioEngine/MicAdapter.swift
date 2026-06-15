@@ -245,9 +245,17 @@ public final class MicAdapter: UpstreamCaptureAdapter, @unchecked Sendable {
         }
 
         if converter == nil || converterSourceFormat != sourceFormat {
-            converter = AVAudioConverter(from: sourceFormat, to: target)
+            let c = AVAudioConverter(from: sourceFormat, to: target)
+            // Default primeMethod (.normal) makes the converter delay output to
+            // pre-roll its internal filter. In a pull-based per-callback path
+            // that means the FIRST conversion returns zero frames — and we
+            // were dropping that buffer (return nil) plus the converter state
+            // was misaligned for the next one. Disable priming so output emits
+            // immediately for the first input chunk.
+            c?.primeMethod = .none
+            converter = c
             converterSourceFormat = sourceFormat
-            debugLog("MicAdapter: built converter from \(sourceFormat) → \(target)")
+            debugLog("MicAdapter: built converter from \(sourceFormat) → \(target) primeMethod=.none")
         }
         guard let conv = converter else { return nil }
 
@@ -257,12 +265,22 @@ public final class MicAdapter: UpstreamCaptureAdapter, @unchecked Sendable {
 
         var consumed = false
         var convError: NSError?
-        conv.convert(to: out, error: &convError) { _, outStatus in
+        let status = conv.convert(to: out, error: &convError) { _, outStatus in
             if consumed { outStatus.pointee = .endOfStream; return nil }
             consumed = true
             outStatus.pointee = .haveData
             return source
         }
+
+        // Diagnostic: log post-converter state every ~100 callbacks so we can
+        // confirm output actually flows (the pre-converter peak logged by the
+        // tap callback only proves input arrived).
+        if callbackCount % 100 == 1 {
+            let len = Int(out.frameLength)
+            let peak = (0..<len).reduce(Float(0)) { max($0, abs(out.floatChannelData?[0][$1] ?? 0)) }
+            debugLog("convert #\(callbackCount): in_frames=\(source.frameLength) out_frames=\(len) status=\(status.rawValue) err=\(convError?.localizedDescription ?? "-") out_peak=\(peak)")
+        }
+
         if convError != nil || out.frameLength == 0 { return nil }
         return out
     }
