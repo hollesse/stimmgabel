@@ -14,10 +14,14 @@ private final class FakeAdapter: UpstreamCaptureAdapter, @unchecked Sendable {
 @MainActor
 final class AppViewModelTests: XCTestCase {
 
-    private func makePipeline(deviceName: String = "") -> AudioPipeline {
+    private func makePipeline(deviceName: String = "",
+                              monitor: DefaultDeviceMonitor = DefaultDeviceMonitor()) -> AudioPipeline {
         let adapter = FakeAdapter()
         adapter.deviceName = deviceName
-        let mic = FakeAdapter(); return AudioPipeline(systemAudioAdapter: adapter, micAdapter: mic)
+        let mic = FakeAdapter()
+        return AudioPipeline(systemAudioAdapter: adapter,
+                             micAdapter: mic,
+                             deviceMonitor: monitor)
     }
 
     // MARK: - Icon
@@ -57,8 +61,11 @@ final class AppViewModelTests: XCTestCase {
     }
 
     func test_currentSystemAudioDeviceName_reflectsPipeline() {
-        let pipeline = makePipeline()
-        pipeline.currentSystemAudioDeviceName = "MacBook Pro Speakers"
+        // Device names are owned by DefaultDeviceMonitor (audio-engine-008), so
+        // we inject one with a forced name to assert the pipeline delegates.
+        let monitor = DefaultDeviceMonitor()
+        monitor._setNamesForTesting(mic: nil, sys: "MacBook Pro Speakers")
+        let pipeline = makePipeline(monitor: monitor)
         let vm = AppViewModel(pipeline: pipeline)
         XCTAssertEqual(vm.currentSystemAudioDeviceName, "MacBook Pro Speakers")
     }

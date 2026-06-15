@@ -208,7 +208,7 @@ public final class MicAdapter: UpstreamCaptureAdapter, @unchecked Sendable {
             throw error
         }
         lock.lock()
-        deviceName = Self.readDefaultInputDeviceName()
+        deviceName = readDefaultDeviceName(forSelector: kAudioHardwarePropertyDefaultInputDevice)
         isRunning = true
         lock.unlock()
         os_log(.info, log: log, "MicAdapter started (%{public}@)", deviceName)
@@ -267,24 +267,7 @@ public final class MicAdapter: UpstreamCaptureAdapter, @unchecked Sendable {
         return out
     }
 
-    private static func readDefaultInputDeviceName() -> String {
-        var deviceID = AudioDeviceID(kAudioObjectUnknown)
-        var size = UInt32(MemoryLayout<AudioDeviceID>.size)
-        var addr = AudioObjectPropertyAddress(
-            mSelector: kAudioHardwarePropertyDefaultInputDevice,
-            mScope: kAudioObjectPropertyScopeGlobal,
-            mElement: kAudioObjectPropertyElementMain)
-        guard AudioObjectGetPropertyData(AudioObjectID(kAudioObjectSystemObject),
-                                         &addr, 0, nil, &size, &deviceID) == noErr,
-              deviceID != kAudioObjectUnknown else { return "" }
-        var nameBytes = [CChar](repeating: 0, count: 256)
-        var nameSize = UInt32(nameBytes.count)
-        var nameAddr = AudioObjectPropertyAddress(
-            mSelector: kAudioDevicePropertyDeviceName,
-            mScope: kAudioObjectPropertyScopeGlobal,
-            mElement: kAudioObjectPropertyElementMain)
-        guard AudioObjectGetPropertyData(deviceID, &nameAddr, 0, nil, &nameSize, &nameBytes) == noErr
-        else { return "" }
-        return String(cString: nameBytes)
-    }
+    // `readDefaultInputDeviceName()` moved to `DefaultDeviceMonitor.swift` as
+    // the free function `readDefaultDeviceName(forSelector:)`, shared between
+    // this adapter and the UI-facing default-device monitor (audio-engine-008).
 }

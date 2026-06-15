@@ -27,6 +27,7 @@ This is Stimmgabel's reason to exist. Everything in `menubar-ui` is here to expo
 - **Lazy activation** — the rule that the engine opens its upstream captures only while at least one consumer is reading. With zero consumers: no mic indicator, no CPU, no audio flowing.
 - **Mute (per side)** — a boolean per side. A muted side contributes silence to the mix; the other side passes through unchanged. Mute does *not* stop the upstream capture (yet — performance optimisation later).
 - **Default tracking** — the behaviour of re-binding the mic side or system-audio side to whatever macOS now considers the default input/output, without user action and without interrupting the consumer.
+- **Default-device monitor** — a process-lifetime observer (`DefaultDeviceMonitor`) of the macOS default input + default output device *names*. Independent of capture state, so the UI can always show "which mic and which output Stimmgabel will use" — even when no consumer is attached and no adapter is running. Same HAL property-listener pattern as the per-side adapters (ADR 0006), but its job is UI data, not capture.
 
 ## Aggregates
 
@@ -61,10 +62,11 @@ Tactical modelling has not happened yet; these are placeholders for future `mode
 
 | Component | Status | Notes |
 |---|---|---|
+| `DefaultDeviceMonitor` | done | Process-lifetime observer of default input/output device names; HAL property-listener pattern; feeds UI in idle state (audio-engine-008) |
 | `UpstreamCaptureAdapter` (protocol) | done | Seam for Tier-1 testing (ADR 0009) |
 | `SystemAudioAdapter` | done | Process Tap, rebinds on default-output change (ADR 0004) |
 | `MicAdapter` | done | HAL IOProc on default input device, rebinds on default-input change, TCC prompt, AudioConverter for format reconciliation (ADR 0006) |
-| `AudioPipeline` | done | Consumer-lifecycle, mute-flag management, `mix(frameCount:)` entry point (ADR 0010) |
+| `AudioPipeline` | done | Consumer-lifecycle, mute-flag management, `mix(frameCount:)` entry point (ADR 0010); delegates `currentMicDeviceName` / `currentSystemAudioDeviceName` to `DefaultDeviceMonitor` (audio-engine-008) |
 | `Mixer` | done | Per-side staging buffers, sample-wise sum, per-side mute as zero, gain slots for v2 (audio-engine-005) |
 | `DriverOutputAdapter` | done | XPC client to driver ring buffer; drives 512-frame render timer; translates `setConsumerActive` signals into `AudioPipeline.consumerAttached/Detached` (audio-engine-006) |
 | `DriverIPCConnection` (protocol) | done | Seam for Tier-1 testing; `XPCDriverIPCConnection` is the production implementation; `FakeDriverIPCConnection` is the test double (audio-engine-006) |

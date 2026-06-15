@@ -25,17 +25,18 @@ public final class AudioPipeline: @unchecked Sendable {
     public var stateDidChange: ((AudioPipelineState) -> Void)?
     public var consumerActive: Bool { queue.sync { state == .consumerAttached } }
 
+    /// Monitors the macOS default input + output device names independent of
+    /// capture lifecycle, so the UI can display them even when no consumer is
+    /// attached. See `DefaultDeviceMonitor` (extends ADR 0006 to the UI side).
+    private let deviceMonitor: DefaultDeviceMonitor
+
     public var currentSystemAudioDeviceName: String {
-        get { queue.sync { _sysName } }
-        set { queue.sync { _sysName = newValue } }
+        deviceMonitor.currentSystemAudioDeviceName
     }
-    private var _sysName: String = ""
 
     public var currentMicDeviceName: String {
-        get { queue.sync { _micName } }
-        set { queue.sync { _micName = newValue } }
+        deviceMonitor.currentMicDeviceName
     }
-    private var _micName: String = ""
 
     public var deviceNamesDidChange: (() -> Void)?
 
@@ -69,15 +70,24 @@ public final class AudioPipeline: @unchecked Sendable {
     // MARK: - Init
 
     public init(systemAudioAdapter: any UpstreamCaptureAdapter,
-                micAdapter: any UpstreamCaptureAdapter) {
+                micAdapter: any UpstreamCaptureAdapter,
+                deviceMonitor: DefaultDeviceMonitor = DefaultDeviceMonitor()) {
         self.systemAudioAdapter = systemAudioAdapter
         self.micAdapter         = micAdapter
+        self.deviceMonitor      = deviceMonitor
 
         // System audio drives the mix — its IOProc fires at the hardware clock.
         systemAudioAdapter.onBuffer = { [weak self] buf in self?.forwardMixed(buf) }
 
         // Mic feeds the staging FIFO; drained on each system-audio callback.
         micAdapter.onBuffer = { [weak self] buf in self?.micStaging.store(buf) }
+
+        // Forward default-device changes to the UI. Fired on the monitor's
+        // serial queue; the callback may run on an arbitrary thread from the
+        // UI's perspective — AppViewModel hops to the main queue.
+        deviceMonitor.onChange = { [weak self] in
+            self?.deviceNamesDidChange?()
+        }
     }
 
     // MARK: - Consumer lifecycle
@@ -87,20 +97,18 @@ public final class AudioPipeline: @unchecked Sendable {
         // the same time (~0.5–1 s) so running them sequentially doubles the
         // perceived latency. Dispatched first so it gets a head start while the
         // sync block below runs system audio.
+        //
+        // Device names are owned by `deviceMonitor` (not the adapters), so neither
+        // start path needs to write them back. The monitor's HAL listener already
+        // reflects the current default input/output independent of attach state.
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             guard let self else { return }
             try? self.micAdapter.start()
-            self.queue.async { [weak self] in
-                guard let self else { return }
-                self._micName = self.micAdapter.deviceName
-                self.deviceNamesDidChange?()
-            }
         }
 
         queue.sync {
             guard state == .idle else { return }
             try? systemAudioAdapter.start()
-            _sysName = systemAudioAdapter.deviceName
             state = .consumerAttached
         }
         deviceNamesDidChange?()
@@ -111,8 +119,6 @@ public final class AudioPipeline: @unchecked Sendable {
             guard state == .consumerAttached else { return }
             systemAudioAdapter.stop()
             micAdapter.stop()
-            _sysName = systemAudioAdapter.deviceName
-            _micName = micAdapter.deviceName
             state = .idle
         }
         deviceNamesDidChange?()
