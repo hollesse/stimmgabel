@@ -43,7 +43,11 @@ public struct StimmgabelApp: App {
             // Icon updates within one runloop cycle of a mute or state change
             // because viewModel is @StateObject and menuBarIconName is computed
             // from @Published properties (ADR 0007).
-            Image(systemName: viewModel.menuBarIconName)
+            //
+            // Asset names ("MenubarIdle" / "MenubarActive") live in the Xcode
+            // app target's Asset Catalog (menubar-ui-006). They are template
+            // images, so AppKit tints them per light/dark/selected state.
+            Image(viewModel.menuBarIconName)
         }
         .menuBarExtraStyle(.window)
     }

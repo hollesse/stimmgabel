@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		AA000001 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA100001 /* main.swift */; };
+		AA000002 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = AA100002 /* Assets.xcassets */; };
 		AA000010 /* StimmgabelDriver.c in Sources */ = {isa = PBXBuildFile; fileRef = AA100010 /* StimmgabelDriver.c */; };
 		AA000020 /* Stimmgabel.driver in Embed Driver in Resources */ = {isa = PBXBuildFile; fileRef = AA200020 /* Stimmgabel.driver */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		AA000030 /* CoreAudio.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AA300030 /* CoreAudio.framework */; };
@@ -32,6 +33,17 @@
 		};
 /* End PBXContainerItemProxy section */
 
+/* Begin PBXResourcesBuildPhase section */
+		AA750010 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AA000002 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
 /* Begin PBXCopyFilesBuildPhase section */
 		AA700020 /* Embed Driver in Resources */ = {
 			isa = PBXCopyFilesBuildPhase;
@@ -48,6 +60,7 @@
 
 /* Begin PBXFileReference section */
 		AA100001 /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = main.swift; path = Stimmgabel/main.swift; sourceTree = "<group>"; };
+		AA100002 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Assets.xcassets; path = Stimmgabel/Assets.xcassets; sourceTree = "<group>"; };
 		AA100010 /* StimmgabelDriver.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = StimmgabelDriver.c; path = StimmgabelDriver/StimmgabelDriver.c; sourceTree = "<group>"; };
 		AA100011 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = Info.plist; path = StimmgabelDriver/Info.plist; sourceTree = "<group>"; };
 		AA100050 /* AudioPipelineTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AudioPipelineTests.swift; path = ../Tests/AudioEngineTests/AudioPipelineTests.swift; sourceTree = "<group>"; };
@@ -117,6 +130,7 @@
 			isa = PBXGroup;
 			children = (
 				AA100001 /* main.swift */,
+				AA100002 /* Assets.xcassets */,
 			);
 			name = Stimmgabel;
 			sourceTree = "<group>";
@@ -177,6 +191,7 @@
 			buildPhases = (
 				AAB00001 /* Sources */,
 				AA800010 /* Frameworks */,
+				AA750010 /* Resources */,
 				AA700020 /* Embed Driver in Resources */,
 			);
 			buildRules = (
@@ -458,6 +473,8 @@
 		AABCX010 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
 				CODE_SIGN_ENTITLEMENTS = Stimmgabel/Stimmgabel.entitlements;
 				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Manual;
@@ -478,6 +495,8 @@
 		AABCX011 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
 				CODE_SIGN_ENTITLEMENTS = Stimmgabel/Stimmgabel.entitlements;
 				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Manual;

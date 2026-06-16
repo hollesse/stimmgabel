@@ -69,7 +69,13 @@ public final class AppViewModel: ObservableObject {
         pipelineState = pipeline.state
     }
 
+    /// Asset-catalog name of the menu-bar icon for the current pipeline state.
+    ///
+    /// Returns custom asset names (`MenubarIdle` / `MenubarActive`) defined in
+    /// `App/Stimmgabel/Assets.xcassets`. Both assets are template images, so
+    /// the menu bar tints them automatically for light/dark + selected states
+    /// (menubar-ui-006).
     public var menuBarIconName: String {
-        pipelineState == .idle ? "waveform.slash" : "waveform"
+        pipelineState == .idle ? "MenubarIdle" : "MenubarActive"
     }
 }

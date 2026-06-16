@@ -26,15 +26,20 @@ final class AppViewModelTests: XCTestCase {
 
     // MARK: - Icon
 
-    func test_icon_idle_isWaveformSlash() {
+    // menubar-ui-006: SF Symbols ("waveform.slash" / "waveform") replaced with
+    // custom Asset-Catalog assets ("MenubarIdle" / "MenubarActive").
+    // The wiring under test is unchanged — idle vs. consumer-attached still
+    // map 1:1 to the two asset names.
+
+    func test_icon_idle_isMenubarIdle() {
         let vm = AppViewModel(pipeline: makePipeline())
-        XCTAssertEqual(vm.menuBarIconName, "waveform.slash")
+        XCTAssertEqual(vm.menuBarIconName, "MenubarIdle")
     }
 
-    func test_icon_consumerAttached_isWaveform() {
+    func test_icon_consumerAttached_isMenubarActive() {
         let vm = AppViewModel(pipeline: makePipeline())
         vm.pipelineState = .consumerAttached
-        XCTAssertEqual(vm.menuBarIconName, "waveform")
+        XCTAssertEqual(vm.menuBarIconName, "MenubarActive")
     }
 
     // MARK: - Status
