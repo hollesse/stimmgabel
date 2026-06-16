@@ -6,7 +6,7 @@ type: feature
 context: menubar-ui
 created: 2026-06-16
 completed: 2026-06-16
-commit:
+commit: c926d17
 depends_on: []
 blocks: []
 tags: [icon, app-icon, menubar, branding, asset-catalog]

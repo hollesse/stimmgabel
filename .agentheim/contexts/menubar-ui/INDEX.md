@@ -13,7 +13,7 @@ research touching this BC, and concept synthesis pages.
 - **Backlog:** 0
 - **Todo:** 0
 - **Doing:** 0
-- **Done:** 5
+- **Done:** 6
 <!-- task-counts:end -->
 
 ### Todo
@@ -26,6 +26,7 @@ research touching this BC, and concept synthesis pages.
 
 ### Done (most recent first; older entries kept for prior-art search)
 <!-- done-list:start -->
+- **menubar-ui-006** — Stimmgabel icon — designed colourful app icon + tuning-fork menubar icon with active-state waves — `done/menubar-ui-006-stimmgabel-icon-app-and-menubar.md`
 - **menubar-ui-005** — Mic gain slider — adjustable mic level, normalized to default, no persistence — `done/menubar-ui-005-mic-gain-slider.md`
 - **menubar-ui-004** — System audio gain slider — adjustable output level, no persistence — `done/menubar-ui-004-sys-audio-gain-slider.md`
 - **menubar-ui-003** — Status indicator — consumer attached state and current device names in the dropdown — `done/menubar-ui-003-status-indicator.md`
@@ -35,7 +36,6 @@ research touching this BC, and concept synthesis pages.
 
 ### Backlog
 <!-- backlog-list:start -->
-- **menubar-ui-005** — Mic gain slider — adjustable mic level, no persistence — `backlog/menubar-ui-005-mic-gain-slider.md`
 <!-- backlog-list:end -->
 
 ## ADRs scoped to this BC

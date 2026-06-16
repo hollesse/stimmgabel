@@ -5,6 +5,47 @@ Newest entries on top.
 
 ---
 
+## 2026-06-16 19:45 -- Work session ended
+
+**Type:** Work / Session end
+**Completed:** 1 (first-try PASS: 1 [menubar-ui-006], re-dispatched: 0, skipped: 0)
+**Bounced:** 0
+**Failed:** 0
+**Escalated after verification:** 0
+**Commits:** 1 (c926d17 menubar-ui-006)
+
+---
+
+## 2026-06-16 19:45 -- Task verified and completed: menubar-ui-006 - Stimmgabel icon (app + menubar)
+
+**Type:** Work / Task completion
+**Task:** menubar-ui-006 - Stimmgabel icon — designed colourful app icon + tuning-fork menubar icon with active-state waves
+**Summary:** New Asset Catalog at App/Stimmgabel/Assets.xcassets with AppIcon (10 PNGs, 16/32/128/256/512 × 1x/2x) and template-image MenubarIdle / MenubarActive (PDF). Hand-authored CC0 artwork, sources kept in art/. AppViewModel.menuBarIconName flipped from SF-Symbol names to asset names; StimmgabelApp drops Image(systemName:). AppViewModelTests updated. LICENSES.md attribution. ./script/build produces .app with embedded AppIcon.icns + Assets.car. 87 tests green.
+**Verification:** PASS (iteration 1 — verifier ran ./script/build + assetutil to confirm pbxproj parses and Template flag is correct in compiled Assets.car)
+**Commit:** c926d17
+**Files changed:** worker FILE_LIST = 26 (4 SVG sources + 10 AppIcon PNGs + 4 Asset Catalog Contents.json + 2 menubar PDFs + pbxproj + 2 swift + tests + LICENSES.md + BC README)
+**Tests added:** 0 (rename + assertion-update only — visual artefacts not unit-testable)
+**ADRs written:** none
+
+---
+
+## 2026-06-16 19:35 -- Batch started: [menubar-ui-006]
+
+**Type:** Work / Batch start
+**Tasks:** menubar-ui-006 - Stimmgabel icon (app + menubar)
+**Parallel:** no (1 worker)
+
+---
+
+## 2026-06-16 19:26 -- Model / Captured: menubar-ui-006 - Stimmgabel icon (app + menubar)
+
+**Type:** Model / Capture
+**BC:** menubar-ui
+**Filed to:** todo
+**Summary:** Replace SF Symbols with a custom tuning-fork app icon (designed, colourful, squircle) and menu-bar icon (monochrome template, two states: idle = fork, active = fork with wifi-style resonance arcs on both sides). Worker sources a freely-licensed SVG (CC0 / public domain preferred). Creates the project's first Asset Catalog. Static — no animation. Also cleaned up a stale menubar-ui-005-mic-gain-slider entry in the BC INDEX backlog list (the task is already done).
+
+---
+
 ## 2026-06-16 18:55 -- Work session ended
 
 **Type:** Work / Session end
