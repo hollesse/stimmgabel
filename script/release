@@ -1,0 +1,190 @@
+#!/bin/bash
+# script/release — Build Stimmgabel and wrap it into a distributable .pkg installer.
+#
+# Runs ./script/build (unchanged), then stages the resulting .app and .driver into
+# the absolute layout that pkgbuild expects, attaches a postinstall script that
+# restarts coreaudiod, and finally wraps the component pkg in a productbuild
+# distribution pkg so macOS Installer.app shows a friendly install UI.
+#
+# Output: dist/Stimmgabel-<version>.pkg
+#
+# Usage:
+#   ./script/release --version 0.2.0
+#   STIMMGABEL_VERSION=0.2.0 ./script/release
+#
+# Notes:
+#   - The .pkg itself is intentionally UNSIGNED. productsign requires a
+#     "Developer ID Installer" certificate which the project does not yet have.
+#     End users right-click → Open the .pkg to bypass Gatekeeper's
+#     unidentified-developer warning. The .app and .driver inside are signed
+#     with the Apple Development identity by ./script/build.
+#   - Re-runnable locally for testing. In CI the GitHub Actions workflow imports
+#     the Apple Development certificate into a temporary keychain before
+#     invoking this script.
+
+set -euo pipefail
+
+REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+DIST_DIR="$REPO_ROOT/dist"
+SCRIPT_DIR="$REPO_ROOT/script"
+
+# --- parse args ---------------------------------------------------------------
+
+VERSION="${STIMMGABEL_VERSION:-}"
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --version)
+            VERSION="$2"
+            shift 2
+            ;;
+        --version=*)
+            VERSION="${1#--version=}"
+            shift
+            ;;
+        -h|--help)
+            sed -n '2,25p' "$0"
+            exit 0
+            ;;
+        *)
+            echo "ERROR: unknown argument: $1" >&2
+            exit 2
+            ;;
+    esac
+done
+
+if [ -z "$VERSION" ]; then
+    echo "ERROR: --version <semver> is required (or set STIMMGABEL_VERSION)." >&2
+    exit 2
+fi
+
+# Strip an optional leading 'v' so the script accepts 'v0.2.0' too.
+VERSION="${VERSION#v}"
+
+echo ">>> Releasing Stimmgabel $VERSION"
+
+# --- build the .app -----------------------------------------------------------
+
+"$SCRIPT_DIR/build"
+
+APP_SRC="$DIST_DIR/Stimmgabel.app"
+DRIVER_SRC="$APP_SRC/Contents/Resources/Stimmgabel.driver"
+
+if [ ! -d "$APP_SRC" ]; then
+    echo "ERROR: $APP_SRC not found — ./script/build did not produce it." >&2
+    exit 1
+fi
+if [ ! -d "$DRIVER_SRC" ]; then
+    echo "ERROR: $DRIVER_SRC not found inside the built .app." >&2
+    exit 1
+fi
+
+# --- stage layout for pkgbuild ------------------------------------------------
+
+STAGING="$DIST_DIR/.pkg-staging-$VERSION"
+SCRIPTS_DIR="$DIST_DIR/.pkg-scripts-$VERSION"
+COMPONENTS_DIR="$DIST_DIR/.pkg-components-$VERSION"
+DIST_XML="$DIST_DIR/.pkg-distribution-$VERSION.xml"
+
+rm -rf "$STAGING" "$SCRIPTS_DIR" "$COMPONENTS_DIR" "$DIST_XML"
+mkdir -p "$STAGING/Applications"
+mkdir -p "$STAGING/Library/Audio/Plug-Ins/HAL"
+mkdir -p "$SCRIPTS_DIR" "$COMPONENTS_DIR"
+
+echo ">>> Staging Stimmgabel.app → Applications/"
+# Use ditto rather than cp -R so extended attributes/resource forks are
+# preserved cleanly (cp -R can leave behind AppleDouble ._ files that
+# pkgbuild then ships inside the .pkg).
+ditto "$APP_SRC" "$STAGING/Applications/Stimmgabel.app"
+
+echo ">>> Staging Stimmgabel.driver → Library/Audio/Plug-Ins/HAL/"
+ditto "$DRIVER_SRC" "$STAGING/Library/Audio/Plug-Ins/HAL/Stimmgabel.driver"
+
+# Belt-and-braces: strip any AppleDouble files that snuck into the staging
+# tree (e.g. when the source tree is on a non-APFS filesystem like a USB
+# drive). Harmless if there are none.
+find "$STAGING" -name '._*' -type f -delete 2>/dev/null || true
+
+# --- postinstall script -------------------------------------------------------
+#
+# killall coreaudiod is the BlackHole-validated pattern. We deliberately do
+# NOT use `launchctl kickstart -k system/com.apple.audio.coreaudiod` — that
+# returns EPERM under SIP on macOS 14.4+.
+
+cat > "$SCRIPTS_DIR/postinstall" <<'EOF'
+#!/bin/bash
+# Restart coreaudiod so it picks up the freshly-installed Stimmgabel.driver.
+# Running as root (Installer.app invokes postinstall as root); no sudo needed.
+set -eu
+
+# Remove the quarantine attribute that download'd bundles inherit. The .pkg
+# itself runs as root so we can strip it from both bundle paths.
+/usr/bin/xattr -dr com.apple.quarantine "/Library/Audio/Plug-Ins/HAL/Stimmgabel.driver" 2>/dev/null || true
+/usr/bin/xattr -dr com.apple.quarantine "/Applications/Stimmgabel.app" 2>/dev/null || true
+
+# Restart coreaudiod. All active audio sessions pause for ~1s.
+/usr/bin/killall coreaudiod || true
+
+exit 0
+EOF
+chmod +x "$SCRIPTS_DIR/postinstall"
+
+# --- pkgbuild (component pkg) -------------------------------------------------
+
+COMPONENT_PKG="$COMPONENTS_DIR/Stimmgabel-component.pkg"
+
+echo ">>> pkgbuild → $COMPONENT_PKG"
+pkgbuild \
+    --root "$STAGING" \
+    --identifier "com.innoq.stimmgabel.pkg" \
+    --version "$VERSION" \
+    --install-location "/" \
+    --scripts "$SCRIPTS_DIR" \
+    "$COMPONENT_PKG"
+
+# --- distribution XML ---------------------------------------------------------
+#
+# A minimal Distribution definition. productbuild --distribution wraps the
+# component pkg in an installer that Installer.app can present with a title
+# and version. We require macOS 14.0 (matches the project's minimum).
+
+cat > "$DIST_XML" <<EOF
+<?xml version="1.0" encoding="utf-8"?>
+<installer-gui-script minSpecVersion="2">
+    <title>Stimmgabel $VERSION</title>
+    <organization>com.innoq.stimmgabel</organization>
+    <domains enable_localSystem="true"/>
+    <options customize="never" require-scripts="false" rootVolumeOnly="true"/>
+    <volume-check>
+        <allowed-os-versions>
+            <os-version min="14.0"/>
+        </allowed-os-versions>
+    </volume-check>
+    <choices-outline>
+        <line choice="default">
+            <line choice="com.innoq.stimmgabel.pkg"/>
+        </line>
+    </choices-outline>
+    <choice id="default"/>
+    <choice id="com.innoq.stimmgabel.pkg" visible="false">
+        <pkg-ref id="com.innoq.stimmgabel.pkg"/>
+    </choice>
+    <pkg-ref id="com.innoq.stimmgabel.pkg" version="$VERSION" onConclusion="none">Stimmgabel-component.pkg</pkg-ref>
+</installer-gui-script>
+EOF
+
+# --- productbuild (distribution pkg) -----------------------------------------
+
+FINAL_PKG="$DIST_DIR/Stimmgabel-$VERSION.pkg"
+
+echo ">>> productbuild → $FINAL_PKG"
+productbuild \
+    --distribution "$DIST_XML" \
+    --package-path "$COMPONENTS_DIR" \
+    "$FINAL_PKG"
+
+# --- cleanup staging ---------------------------------------------------------
+
+rm -rf "$STAGING" "$SCRIPTS_DIR" "$COMPONENTS_DIR" "$DIST_XML"
+
+echo ">>> Release pkg ready: $FINAL_PKG"
+echo "    Smoke-test locally with: open $FINAL_PKG"

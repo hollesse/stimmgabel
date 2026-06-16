@@ -5,9 +5,9 @@ Owns Stimmgabel's **globally-true tech concerns** — decisions and assets that 
 
 - App bundle structure and entitlements
 - Build / release tooling
-- Code-signing & notarisation roadmap (deferred for v1 — see ADRs once they land)
-- Distribution channel (later — GitHub release, Homebrew tap, …)
-- Any future CI
+- Code-signing roadmap: v1 uses Apple Development cert (free, ADR 0013); v2 = Developer ID + notarisation (ADR 0008 v2 row, gated on Apple Developer Program membership)
+- Distribution channel: v1 = GitHub Releases with CI-built `.pkg` (infrastructure-010). Homebrew Cask deferred to v2 — see related research reports.
+- CI: GitHub Actions, `macos-latest` runner, tag-push triggered (`.github/workflows/release.yml`)
 
 BC-local tech concerns (the specific CoreAudio binding in `audio-engine`, the specific SwiftUI views in `menubar-ui`, the persistence mechanism that lives next to `menubar-ui`'s mute-state) stay inside their originating BC and do *not* belong here.
 
@@ -50,7 +50,7 @@ Not applicable — this BC holds tech decisions and shipping assets, not a domai
 Not exercised in this spike. The walking skeleton app is **unsandboxed** (no `com.apple.security.app-sandbox` entitlement). The sandbox question applies only when the real Process Tap (ADR 0004) is wired in — that is a follow-up empirical task.
 
 **Q3 — Install UX acceptability (single `sudo` prompt):**
-**Yes — acceptable for v1.** Single `sudo` prompt confirmed sufficient. No `.pkg` installer needed for the author workflow.
+**Yes — acceptable for v1.** Single `sudo` prompt confirmed sufficient for the author's own workflow. For teammates, infrastructure-010 added a `.pkg` installer (CI-built on `v*` tag push, attached to a GitHub Release draft) that wraps the same `Stimmgabel.app` + `Stimmgabel.driver` in an Installer.app flow with a single admin prompt — so teammates do not need to clone the repo. See ADR 0013 for the Apple-Development-cert-via-CI-Secret signing path.
 
 ### Driver IPC (infrastructure-009) implementation notes — macOS 26
 

@@ -1,0 +1,104 @@
+name: release
+
+# Tag-push triggered only. Cutting a release is: `git tag vX.Y.Z && git push --tags`.
+# The workflow imports the author's Apple Development certificate into a fresh
+# temporary keychain, builds the .app + .driver via ./script/build, packages
+# them into a .pkg via ./script/release, then attaches the .pkg to a DRAFT
+# GitHub Release. The author publishes the draft from the GitHub UI after
+# smoke-testing the downloaded .pkg locally.
+#
+# Required repository secrets (one-time setup — see docs/SECRETS.md):
+#   APPLE_DEV_CERT_P12_BASE64 — base64 of the .p12 export of the Apple
+#                               Development cert + private key
+#   APPLE_DEV_CERT_PASSWORD   — password used when exporting the .p12
+#   KEYCHAIN_PASSWORD         — any string; locks the temporary keychain
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build-and-draft-release:
+    runs-on: macos-latest
+    permissions:
+      contents: write
+    env:
+      VERSION: ${{ github.ref_name }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Strip leading 'v' from VERSION
+        run: echo "VERSION=${VERSION#v}" >> "$GITHUB_ENV"
+
+      - name: Import Apple Development cert into temporary keychain
+        env:
+          P12_BASE64: ${{ secrets.APPLE_DEV_CERT_P12_BASE64 }}
+          P12_PASSWORD: ${{ secrets.APPLE_DEV_CERT_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+        run: |
+          set -euo pipefail
+          KEYCHAIN_PATH="$RUNNER_TEMP/build.keychain-db"
+          CERT_PATH="$RUNNER_TEMP/cert.p12"
+
+          echo -n "$P12_BASE64" | base64 --decode -o "$CERT_PATH"
+
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+
+          security import "$CERT_PATH" \
+              -P "$P12_PASSWORD" \
+              -A \
+              -t cert \
+              -f pkcs12 \
+              -k "$KEYCHAIN_PATH"
+
+          # Critical: without set-key-partition-list the codesign tool blocks
+          # on a UI prompt for keychain access and the workflow hangs.
+          security set-key-partition-list \
+              -S apple-tool:,apple: \
+              -k "$KEYCHAIN_PASSWORD" \
+              "$KEYCHAIN_PATH"
+
+          # Make the temporary keychain visible to xcodebuild / codesign.
+          security list-keychain -d user -s "$KEYCHAIN_PATH"
+
+          # Sanity check — at least one Apple Development identity must be
+          # discoverable; otherwise fail fast with a clear message.
+          if ! security find-identity -v -p codesigning "$KEYCHAIN_PATH" | grep -q "Apple Development"; then
+              echo "ERROR: no 'Apple Development' identity found in imported keychain." >&2
+              security find-identity -v -p codesigning "$KEYCHAIN_PATH" >&2 || true
+              exit 1
+          fi
+
+      - name: Build & package
+        run: ./script/release --version "$VERSION"
+
+      - name: Verify .pkg exists
+        run: |
+          set -euo pipefail
+          PKG="dist/Stimmgabel-${VERSION}.pkg"
+          if [ ! -f "$PKG" ]; then
+              echo "ERROR: expected $PKG, not found." >&2
+              ls -l dist/ >&2 || true
+              exit 1
+          fi
+          echo "Built: $PKG ($(stat -f%z "$PKG") bytes)"
+
+      - name: Create draft GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          draft: true
+          generate_release_notes: true
+          files: dist/Stimmgabel-${{ env.VERSION }}.pkg
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Clean up temporary keychain
+        if: always()
+        run: |
+          security delete-keychain "$RUNNER_TEMP/build.keychain-db" 2>/dev/null || true
+          rm -f "$RUNNER_TEMP/cert.p12"
