@@ -5,6 +5,115 @@ Newest entries on top.
 
 ---
 
+## 2026-06-16 18:55 -- Work session ended
+
+**Type:** Work / Session end
+**Completed:** 1 (first-try PASS: 1 [infrastructure-010], re-dispatched: 0, skipped: 0)
+**Bounced:** 0
+**Failed:** 0
+**Escalated after verification:** 0
+**Commits:** 1 (6e9086c infrastructure-010)
+
+---
+
+## 2026-06-16 18:55 -- Task verified and completed: infrastructure-010 - Distribution — GitHub Release with .pkg installer
+
+**Type:** Work / Task completion
+**Task:** infrastructure-010 - Distribution — GitHub Release with .pkg installer (CI-built, Apple Development signed)
+**Summary:** New script/release wraps script/build + pkgbuild/productbuild to produce dist/Stimmgabel-<version>.pkg. Tag-push GitHub Actions workflow imports Apple Development cert from GitHub Secret into temp keychain, builds, packages, drafts a Release with auto-generated notes. ADR 0013 clarifies v1 Apple-Development-cert signing path (was mis-framed as ad-hoc in ADR 0008). docs/SECRETS.md + docs/RELEASING.md author-facing guides. README "Install" section rewritten for download → right-click Open → Open-Anyway flow. 87 tests still green.
+**Verification:** PASS (iteration 1 — verifier ran script/release locally to confirm pkg builds correctly)
+**Commit:** 6e9086c
+**Files changed:** 7 (script/release, workflow, 2 docs, top-level README, ADR, BC README)
+**Tests added:** 0 (task does not touch app code)
+**ADRs written:** 0013-v1-signing-apple-development-cert-via-ci-secret.md (scope: global)
+
+---
+
+## 2026-06-16 18:41 -- Batch started: [infrastructure-010]
+
+**Type:** Work / Batch start
+**Tasks:** infrastructure-010 - Distribution — GitHub Release with .pkg installer (CI-built, Apple Development signed)
+**Parallel:** no (1 worker)
+
+---
+
+## 2026-06-16 -- Model / Promoted: infrastructure-010 - Distribution — GitHub Release with .pkg installer
+
+**Type:** Model / Promote
+**BC:** infrastructure
+**From → To:** backlog → todo
+
+---
+
+## 2026-06-16 -- Model / Refined: infrastructure-010 - Distribution (Apple Development cert via GitHub Secret)
+
+**Type:** Model / Refine
+**BC:** infrastructure
+**Status after:** backlog (promote-ready)
+**Summary:** Second refinement after user spotted TCC-permission-on-update concern with ad-hoc signing. Switched CI signing from true ad-hoc to importing the author's existing Apple Development cert via a GitHub Secret (.p12 base64 + password + temp keychain). Stable Team-ID-based DR → Mic + System-Audio permissions persist across updates. .pkg itself stays unsigned (no Dev ID Installer cert). Added concrete workflow skeleton incl. `security set-key-partition-list` step. Worker MUST write a short ADR clarifying the v1 Apple-Development-cert path superseding ADR 0008's "ad-hoc v1" framing. Author must do one-time secret setup before first CI run; `docs/SECRETS.md` deliverable covers it.
+**Split into:** none (single task, fully specified)
+**ADRs written:** none (worker will write one during execution)
+
+---
+
+## 2026-06-16 -- Model / Refined: infrastructure-010 - Distribution (CI-built .pkg release)
+
+**Type:** Model / Refine
+**BC:** infrastructure
+**Status after:** backlog (promote-ready)
+**Summary:** Added GitHub Actions automation per user request — no more manual upload. Workflow triggers on `v*` tag push, builds on macos-latest, ad-hoc signs (no secrets), creates a DRAFT release with auto-generated notes so author smoke-tests before publishing. `script/release` to wrap `script/build` + pkgbuild/productbuild. Concrete workflow skeleton + acceptance criteria included.
+**Split into:** none (single task, fully specified)
+**ADRs written:** none
+
+---
+
+## 2026-06-16 -- Model / Refined: infrastructure-010 - Distribution — GitHub Release with .pkg installer
+
+**Type:** Model / Refine
+**BC:** infrastructure
+**Status after:** backlog
+**Summary:** Pivoted scope away from Homebrew Cask after research showed ad-hoc signing path is non-viable (Homebrew 5.0 / 6.0 both require Dev ID + notarisation). User chose: ship a `.pkg` via GitHub Releases, double-click install with one admin prompt, document one-time Gatekeeper Open-Anyway. ADR 0008 v1 ad-hoc stays. File renamed to infrastructure-010-github-release-pkg-installer.md. Both research reports linked.
+**Split into:** none (single task, well-specified)
+**ADRs written:** none
+
+---
+
+## 2026-06-16 -- Research: Homebrew 6.0 tap-trust mechanism — implications for unsigned third-party casks
+
+**Type:** Research
+**Requested by:** model
+**Report:** knowledge/research/homebrew-6-tap-trust-2026-06-16.md
+**Summary:**
+- Verdict UNCHANGED. Homebrew 6.0 tap trust gates Ruby code evaluation (the cask .rb, formulas, external commands) — not artefact signing. Ad-hoc still not viable.
+- 6.0.0 confirmed released 2026-06-11 from primary sources (brew.sh, docs.brew.sh/Tap-Trust, PRs #22470 / #22472). Sept-2026 cutoff for unsigned casks stays.
+- Trust UX: `brew trust hollesse/stimmgabel` or Brewfile `trusted: true` — non-interactive, env-var override available. One extra line in install one-liner.
+- No 6.0 example endorses shipping unsigned artefacts via tap trust. Community workaround taps still rely on quarantine stripping which 5.0 already pushed back on.
+
+---
+
+## 2026-06-15 11:32 -- Research: Homebrew Cask install of macOS audio drivers on macOS 26
+
+**Type:** Research
+**Requested by:** model
+**Report:** knowledge/research/homebrew-cask-audio-driver-macos26-2026-06-15.md
+**Summary:**
+- Ad-hoc signing is NOT viable for `brew install --cask` in 2026. Path forces upgrade to Developer ID Application + Developer ID Installer + notarisation + staple.
+- Homebrew 5.0 (Nov 2025) deprecated unsigned/un-notarised casks; official tap removes them by September 2026. `--no-quarantine` removed. Private tap survives audit but users still hit Gatekeeper.
+- BlackHole's cask is the working analogue: single `.pkg`, `pkg` artifact, `uninstall pkgutil`, `caveats { reboot }`, `killall coreaudiod` (not launchctl kickstart — EPERM under SIP on macOS ≥14.4).
+- macOS 26.3 Tahoe regression (March 2026, unresolved): Finder/spctl rejects quarantined notarised pkgs; `brew install --cask` not affected since it shells to `installer(8)`.
+- Homebrew 6.0.0 (2026-06-11, 4 days ago) introduced tap-trust mechanism — open question, official release notes not successfully fetched.
+
+---
+
+## 2026-06-15 11:25 -- Model / Captured: infrastructure-010 - Homebrew Cask install
+
+**Type:** Model / Capture
+**BC:** infrastructure
+**Filed to:** backlog
+**Summary:** One-command `brew install --cask stimmgabel` via a separate `hollesse/homebrew-stimmgabel` tap. Ships app + driver via a `.pkg` artifact (single admin prompt). Stays ad-hoc signed per ADR 0008 (user accepts one-time "Open Anyway" gesture). Open research questions on Homebrew 5.x cask security and unsigned-pkg acceptance on macOS 26 are listed for `/research` before refine.
+
+---
+
 ## 2026-06-15 10:38 -- Work session ended
 
 **Type:** Work / Session end

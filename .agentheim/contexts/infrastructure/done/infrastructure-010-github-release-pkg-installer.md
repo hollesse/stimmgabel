@@ -6,7 +6,7 @@ type: feature
 context: infrastructure
 created: 2026-06-15
 completed: 2026-06-16
-commit:
+commit: 6e9086c
 depends_on: []
 blocks: []
 tags: [release, distribution, pkg, installer, driver-install, gatekeeper, ci, github-actions, codesign]

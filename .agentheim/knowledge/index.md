@@ -19,6 +19,7 @@ For BC-scoped artifacts, see each BC's `INDEX.md`.
 ## Global ADRs (scope: global)
 
 <!-- adr-global:start -->
+- **0013** — v1 signing path is Apple Development cert (Keychain locally, GitHub Secret in CI), not true ad-hoc — clarifies ADR 0008's v1 row — 2026-06-16 — `knowledge/decisions/0013-v1-signing-apple-development-cert-via-ci-secret.md`
 - **0012** — Driver IPC on macOS 26 — POSIX SHM (audio frames) + Darwin notify (consumer-active) — supersedes XPC Mach service approach — 2026-06-05 — `knowledge/decisions/0012-driver-ipc-macos26-shm-notifications.md`
 - **0009** — Three-tier testing: XCTest units on CI, live-audio integration on real Mac, manual smoke checklist — 2026-06-05 — `knowledge/decisions/0009-testing-strategy.md`
 - **0008** — SPM modules + thin Xcode app target; ad-hoc sign v1, Developer ID + notarise v2 — 2026-06-05 — `knowledge/decisions/0008-build-and-release-tooling.md`
