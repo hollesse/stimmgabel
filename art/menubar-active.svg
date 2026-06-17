@@ -1,59 +1,26 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<!--
-  Stimmgabel menubar icon — active state.
-  Tuning fork plus symmetric Wi-Fi-style sound-wave arcs on both prongs.
-  Template image (currentColor → tinted by AppKit).
-  Original artwork (public domain / CC0).
--->
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">
-  <!--
-    Fork: same shape as idle, scaled to 78% and centered horizontally.
-    Original fork spans x=28..72 (width 44). Scaled width = 34.32.
-    New fork left edge = 50 - 17.16 ≈ 32.84.
-    Translate the scaled fork so its center stays at x=50. Group transform:
-      translate(11, 11) scale(0.78)
-    This places the original (0..100) fork into (11..89) horizontally and
-    vertically, leaving 11 units of padding on each side for the waves.
-  -->
-  <g transform="translate(11 11) scale(0.78)">
-    <path fill="currentColor" d="
-      M 28 10
-      A 2 2 0 0 1 30 8
-      L 38 8
-      A 2 2 0 0 1 40 10
-      L 40 56
-      L 60 56
-      L 60 10
-      A 2 2 0 0 1 62 8
-      L 70 8
-      A 2 2 0 0 1 72 10
-      L 72 64
-      Q 72 78 58 78
-      L 58 92
-      A 2 2 0 0 1 56 94
-      L 44 94
-      A 2 2 0 0 1 42 92
-      L 42 78
-      Q 28 78 28 64
-      Z
-    "/>
+<?xml version="1.0"?>
+
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  
+  <g id="waves" fill="none" stroke="#000000" stroke-width="62" stroke-linecap="round">
+    
+    <g id="waves-left">
+      <path d="M 332 442.7 A 80 80 0 0 0 332 581.3"></path>
+      <path d="M 277 347.5 A 190 190 0 0 0 277 676.5"></path>
+    </g>
+    
+    <g id="waves-right">
+      <path d="M 692 442.7 A 80 80 0 0 1 692 581.3"></path>
+      <path d="M 747 347.5 A 190 190 0 0 1 747 676.5"></path>
+    </g>
   </g>
 
-  <!--
-    Sound-wave arcs. Two arcs per side, drawn as stroked paths.
-    The fork's left prong outer edge sits at scaled x = 11 + 28*0.78 ≈ 32.84
-    and the prong outer right edge at x = 11 + 72*0.78 ≈ 67.16.
-    Arcs centred around y=30 (mid-prong height), curving outward.
-    Inner arc radius ~ 4, outer arc radius ~ 9.
-  -->
-  <g fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round">
-    <!-- Left side, inner arc (concave toward fork) -->
-    <path d="M 27 24 A 4 6 0 0 0 27 36"/>
-    <!-- Left side, outer arc -->
-    <path d="M 19 18 A 10 12 0 0 0 19 42"/>
-    <!-- Right side, inner arc -->
-    <path d="M 73 24 A 4 6 0 0 1 73 36"/>
-    <!-- Right side, outer arc -->
-    <path d="M 81 18 A 10 12 0 0 1 81 42"/>
+  
+  <g id="tuning-fork">
+    <g fill="none" stroke="#000000" stroke-width="80" stroke-linecap="round" stroke-linejoin="round">
+      <path id="prongs" d="M 428 130 L 428 600 A 84 84 0 0 0 596 600 L 596 130"></path>
+      <path id="stem" d="M 512 684 L 512 826"></path>
+    </g>
+    <circle id="foot" cx="512" cy="846" r="54" fill="#000000"></circle>
   </g>
 </svg>

@@ -1,29 +1,11 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<!--
-  Stimmgabel menubar icon — idle state.
-  Plain tuning-fork silhouette. Template image (currentColor → tinted by AppKit).
-  Original artwork (public domain / CC0).
--->
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">
-  <path fill="currentColor" d="
-    M 28 10
-    A 2 2 0 0 1 30 8
-    L 38 8
-    A 2 2 0 0 1 40 10
-    L 40 56
-    L 60 56
-    L 60 10
-    A 2 2 0 0 1 62 8
-    L 70 8
-    A 2 2 0 0 1 72 10
-    L 72 64
-    Q 72 78 58 78
-    L 58 92
-    A 2 2 0 0 1 56 94
-    L 44 94
-    A 2 2 0 0 1 42 92
-    L 42 78
-    Q 28 78 28 64
-    Z
-  "/>
+<?xml version="1.0"?>
+
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <g id="tuning-fork">
+    <g fill="none" stroke="#000000" stroke-width="80" stroke-linecap="round" stroke-linejoin="round">
+      <path id="prongs" d="M 428 130 L 428 600 A 84 84 0 0 0 596 600 L 596 130"></path>
+      <path id="stem" d="M 512 684 L 512 826"></path>
+    </g>
+    <circle id="foot" cx="512" cy="846" r="54" fill="#000000"></circle>
+  </g>
 </svg>
