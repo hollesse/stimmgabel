@@ -13,7 +13,7 @@ research touching this BC, and concept synthesis pages.
 - **Backlog:** 0
 - **Todo:** 0
 - **Doing:** 0
-- **Done:** 10
+- **Done:** 11
 <!-- task-counts:end -->
 
 ### Todo
@@ -26,6 +26,7 @@ research touching this BC, and concept synthesis pages.
 
 ### Done (most recent first; older entries kept for prior-art search)
 <!-- done-list:start -->
+- **infrastructure-011** — Release .pkg — disable bundle relocation so install always lands in /Applications — `done/infrastructure-011-pkg-bundle-relocation-fix.md`
 - **infrastructure-010** — Distribution — GitHub Release with .pkg installer (CI-built, Apple Development signed) — `done/infrastructure-010-github-release-pkg-installer.md`
 - **infrastructure-009** — Driver IPC — replace XPC with POSIX SHM + Darwin notify (macOS 26 fix) — `done/infrastructure-009-driver-ipc-shm-macos26.md`
 - **infrastructure-008** — Driver IPC — Mach service, ring buffer, XPC server in Stimmgabel.driver — `done/infrastructure-008-driver-ipc-ring-buffer.md`

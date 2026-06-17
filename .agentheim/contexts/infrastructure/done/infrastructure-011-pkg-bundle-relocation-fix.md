@@ -6,7 +6,7 @@ type: bug
 context: infrastructure
 created: 2026-06-17
 completed: 2026-06-17
-commit:
+commit: dcfbdd5
 depends_on: []
 blocks: []
 tags: [pkg, packagekit, bundle-relocation, release, bug]

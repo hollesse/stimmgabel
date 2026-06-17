@@ -5,6 +5,47 @@ Newest entries on top.
 
 ---
 
+## 2026-06-17 -- Work session ended
+
+**Type:** Work / Session end
+**Completed:** 1 (first-try PASS: 1 [infrastructure-011], re-dispatched: 0, skipped: 0)
+**Bounced:** 0
+**Failed:** 0
+**Escalated after verification:** 0
+**Commits:** 1 (dcfbdd5 infrastructure-011)
+
+---
+
+## 2026-06-17 -- Task verified and completed: infrastructure-011 - Disable .pkg bundle relocation
+
+**Type:** Work / Task completion
+**Task:** infrastructure-011 - Release .pkg — disable bundle relocation so install always lands in /Applications
+**Summary:** `script/release` now runs `pkgbuild --analyze` to generate a component plist, flips BundleIsRelocatable=NO on every entry via defensive plutil loop, and feeds it back via `--component-plist`. PackageInfo XML now shows `<relocate/>` (empty) instead of populated bundle-relocation block. docs/RELEASING.md documents the step + verification recipe. 87 tests stay green.
+**Verification:** PASS (iteration 1 — verifier built a test pkg and confirmed PackageInfo XML + relocatable="false" attribute)
+**Commit:** dcfbdd5
+**Files changed:** 2 (script/release, docs/RELEASING.md)
+**Tests added:** 0 (build-pipeline mechanics fix, no app code touched)
+**ADRs written:** none
+
+---
+
+## 2026-06-17 -- Batch started: [infrastructure-011]
+
+**Type:** Work / Batch start
+**Tasks:** infrastructure-011 - Release .pkg — disable bundle relocation
+**Parallel:** no (1 worker)
+
+---
+
+## 2026-06-17 -- Model / Captured: infrastructure-011 - Disable .pkg bundle relocation
+
+**Type:** Model / Capture
+**BC:** infrastructure
+**Filed to:** todo
+**Summary:** v0.1.0 install surfaced a PackageKit "bundle relocation" footgun: the installer relocates Stimmgabel.app to the dev build at .build/xcodebuild/ instead of installing to /Applications/. Fix is a 5-line addition to script/release — `pkgbuild --analyze` + `plutil -replace 0.BundleIsRelocatable -bool NO` + `--component-plist` flag. v0.1.0 unblocked manually via `sudo cp -R .build/xcodebuild/Stimmgabel.app /Applications/`; proper fix lands in v0.1.1.
+
+---
+
 ## 2026-06-16 19:45 -- Work session ended
 
 **Type:** Work / Session end
