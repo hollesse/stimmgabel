@@ -6,7 +6,7 @@ type: chore
 context: menubar-ui
 created: 2026-06-17
 completed: 2026-06-17
-commit:
+commit: 58643d7
 depends_on: []
 blocks: []
 tags: [icon, app-icon, menubar, branding, asset-catalog]

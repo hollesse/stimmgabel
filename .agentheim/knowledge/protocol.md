@@ -8,6 +8,47 @@ Newest entries on top.
 ## 2026-06-17 -- Work session ended
 
 **Type:** Work / Session end
+**Completed:** 1 (first-try PASS: 1 [menubar-ui-007], re-dispatched: 0, skipped: 0)
+**Bounced:** 0
+**Failed:** 0
+**Escalated after verification:** 0
+**Commits:** 1 (58643d7 menubar-ui-007)
+
+---
+
+## 2026-06-17 -- Task verified and completed: menubar-ui-007 - Swap icon artwork from Claude Design handoff
+
+**Type:** Work / Task completion
+**Task:** menubar-ui-007 - Swap icon artwork — adopt Claude Design handoff for app + menubar icons
+**Summary:** Replaced the four source SVGs in `art/` with the Claude Design handoff (chrome-on-blue app icon with cyan resonance arcs; tightened monochrome menubar templates) and regenerated all derived assets — AppIcon PNG ladder (10 sizes), MenubarIdle/MenubarActive PDFs, and the repo-level `art/AppIcon.iconset/` + `art/AppIcon.icns`. No code, Contents.json, or pbxproj touched.
+**Verification:** PASS (iteration 1 — verifier ran `cmp` on SVGs, `xcodebuild` (BUILD SUCCEEDED), `swift test` (87/0), confirmed Template Mode preserved in Contents.json)
+**Commit:** 58643d7
+**Files changed:** 27 (4 SVG sources + 10 AppIcon PNGs in both appiconset + repo-level iconset + 2 menubar PDFs + AppIcon.icns)
+**Tests added:** 0 (pure asset swap, plumbing unchanged)
+**ADRs written:** none
+
+---
+
+## 2026-06-17 -- Batch started: [menubar-ui-007]
+
+**Type:** Work / Batch start
+**Tasks:** menubar-ui-007 - Swap icon artwork from Claude Design handoff
+**Parallel:** no (1 worker)
+
+---
+
+## 2026-06-17 -- Model / Captured: menubar-ui-007 - Swap icon artwork from Claude Design handoff
+
+**Type:** Model / Capture
+**BC:** menubar-ui
+**Filed to:** todo
+**Summary:** New SVGs from Claude Design (under `docs/Stimmgabel-Icons-Designs/`) replace the original menubar-ui-006 artwork. Pure asset swap plus regeneration of AppIcon PNG ladder, menubar PDFs, and `.icns`. No code in `Sources/` changes.
+
+---
+
+## 2026-06-17 -- Work session ended
+
+**Type:** Work / Session end
 **Completed:** 1 (first-try PASS: 1 [infrastructure-011], re-dispatched: 0, skipped: 0)
 **Bounced:** 0
 **Failed:** 0
