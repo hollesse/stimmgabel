@@ -6,7 +6,7 @@ type: bug
 context: menubar-ui
 created: 2026-06-17
 completed: 2026-06-17
-commit:
+commit: 643d09d
 depends_on: []
 blocks: []
 tags: [bug, icon, menubar, asset-catalog]

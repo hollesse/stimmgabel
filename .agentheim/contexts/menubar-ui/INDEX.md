@@ -13,7 +13,7 @@ research touching this BC, and concept synthesis pages.
 - **Backlog:** 0
 - **Todo:** 0
 - **Doing:** 0
-- **Done:** 7
+- **Done:** 8
 <!-- task-counts:end -->
 
 ### Todo
@@ -26,6 +26,7 @@ research touching this BC, and concept synthesis pages.
 
 ### Done (most recent first; older entries kept for prior-art search)
 <!-- done-list:start -->
+- **menubar-ui-008** — Menubar icon renders oversized — tighten viewBox + page size in menubar SVGs — `done/menubar-ui-008-menubar-icon-oversized-tight-viewbox.md`
 - **menubar-ui-007** — Swap icon artwork — adopt Claude Design handoff for app + menubar icons — `done/menubar-ui-007-swap-icon-artwork-from-design-handoff.md`
 - **menubar-ui-006** — Stimmgabel icon — designed colourful app icon + tuning-fork menubar icon with active-state waves — `done/menubar-ui-006-stimmgabel-icon-app-and-menubar.md`
 - **menubar-ui-005** — Mic gain slider — adjustable mic level, normalized to default, no persistence — `done/menubar-ui-005-mic-gain-slider.md`

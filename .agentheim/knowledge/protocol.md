@@ -8,6 +8,47 @@ Newest entries on top.
 ## 2026-06-17 -- Work session ended
 
 **Type:** Work / Session end
+**Completed:** 1 (first-try PASS: 1 [menubar-ui-008], re-dispatched: 0, skipped: 0)
+**Bounced:** 0
+**Failed:** 0
+**Escalated after verification:** 0
+**Commits:** 1 (643d09d menubar-ui-008)
+
+---
+
+## 2026-06-17 -- Task verified and completed: menubar-ui-008 - Menubar icon oversized — tighten viewBox
+
+**Type:** Work / Task completion
+**Task:** menubar-ui-008 - Menubar icon renders oversized — tighten viewBox + page size in menubar SVGs
+**Summary:** Both menubar SVGs now share `viewBox="107 90 810 810" width="18" height="18"` (square, tight, fork-centered). Path geometry unchanged from menubar-ui-007. Regenerated PDFs have MediaBox `[0 0 13.5 13.5]` (rsvg 96→72dpi of 18 CSS px). Template flag preserved.
+**Verification:** PASS (iteration 1 — verifier confirmed viewBox/width/height bit-identical across both SVGs, paths unchanged from HEAD, PDF MediaBox correct, Contents.json template flag intact, `swift test` 87/0/1-skip)
+**Commit:** 643d09d
+**Files changed:** 4 (2 SVG, 2 PDF)
+**Tests added:** 0 (pure asset-canvas fix; visual outcome requires manual menubar check)
+**ADRs written:** none
+
+---
+
+## 2026-06-17 -- Batch started: [menubar-ui-008]
+
+**Type:** Work / Batch start
+**Tasks:** menubar-ui-008 - Menubar icon oversized — tighten viewBox + page size
+**Parallel:** no (1 worker)
+
+---
+
+## 2026-06-17 -- Model / Captured: menubar-ui-008 - Menubar icon oversized — tighten viewBox
+
+**Type:** Model / Capture
+**BC:** menubar-ui
+**Filed to:** todo
+**Summary:** Bug introduced by menubar-ui-007: handoff menubar SVGs declare `viewBox="0 0 1024 1024" width="1024" height="1024"` with the artwork only in the central region. PDF natural size = 1024pt, AppKit renders huge → MenuBarExtra item is too tall and too wide. Fix: tighten the viewBox to a shared square bounding box around the active state's artwork, set SVG width/height to 18, regenerate PDFs. Asset-only fix, no Swift changes.
+
+---
+
+## 2026-06-17 -- Work session ended
+
+**Type:** Work / Session end
 **Completed:** 1 (first-try PASS: 1 [menubar-ui-007], re-dispatched: 0, skipped: 0)
 **Bounced:** 0
 **Failed:** 0
