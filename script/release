@@ -128,6 +128,39 @@ exit 0
 EOF
 chmod +x "$SCRIPTS_DIR/postinstall"
 
+# --- component plist (disable bundle relocation) ------------------------------
+#
+# Without this step, PackageKit's "Bundle Relocation" feature will silently
+# install Stimmgabel.app *over* any existing copy of the bundle found on disk
+# (matched by CFBundleIdentifier) instead of writing it to /Applications/.
+# For developers with a leftover ./script/build output at
+# .build/xcodebuild/Stimmgabel.app this means /Applications/ stays empty.
+#
+# Mitigation: generate the default component plist via `pkgbuild --analyze`,
+# flip BundleIsRelocatable=NO for each entry, and feed it back via
+# --component-plist. Only top-level .app bundles appear in the plist;
+# .driver bundles under /Library/Audio/Plug-Ins/HAL/ are not subject to
+# relocation, but we defensively flip every entry just in case.
+
+COMPONENTS_PLIST="$COMPONENTS_DIR/components.plist"
+
+echo ">>> pkgbuild --analyze → $COMPONENTS_PLIST"
+pkgbuild --analyze --root "$STAGING" "$COMPONENTS_PLIST"
+
+# Count entries and set BundleIsRelocatable=NO for each. The plist is an array
+# of dictionaries — usually exactly one entry (Stimmgabel.app).
+ENTRY_COUNT=$(/usr/libexec/PlistBuddy -c "Print" "$COMPONENTS_PLIST" 2>/dev/null | grep -c '^    Dict {' || true)
+if [ "$ENTRY_COUNT" -eq 0 ]; then
+    # Fallback: plutil-based count via JSON conversion.
+    ENTRY_COUNT=$(plutil -convert json -o - "$COMPONENTS_PLIST" | python3 -c 'import json,sys; print(len(json.load(sys.stdin)))')
+fi
+echo ">>> Disabling BundleIsRelocatable on $ENTRY_COUNT component(s)"
+i=0
+while [ "$i" -lt "$ENTRY_COUNT" ]; do
+    plutil -replace "${i}.BundleIsRelocatable" -bool NO "$COMPONENTS_PLIST"
+    i=$((i + 1))
+done
+
 # --- pkgbuild (component pkg) -------------------------------------------------
 
 COMPONENT_PKG="$COMPONENTS_DIR/Stimmgabel-component.pkg"
@@ -135,6 +168,7 @@ COMPONENT_PKG="$COMPONENTS_DIR/Stimmgabel-component.pkg"
 echo ">>> pkgbuild → $COMPONENT_PKG"
 pkgbuild \
     --root "$STAGING" \
+    --component-plist "$COMPONENTS_PLIST" \
     --identifier "com.innoq.stimmgabel.pkg" \
     --version "$VERSION" \
     --install-location "/" \

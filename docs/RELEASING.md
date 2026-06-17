@@ -54,6 +54,23 @@ The workflow:
 3. Attaches `dist/Stimmgabel-X.Y.Z.pkg` to a **DRAFT** GitHub Release.
 4. Cleans up the keychain.
 
+#### Bundle relocation is disabled
+
+`./script/release` generates a component property list via
+`pkgbuild --analyze`, flips `BundleIsRelocatable=NO` on every entry, and
+passes it back via `--component-plist`. Without this step, macOS
+PackageKit's *Bundle Relocation* feature scans the user's disk at install
+time for any existing bundle with the same `CFBundleIdentifier`
+(`com.innoq.stimmgabel`) and silently redirects the install to that copy
+instead of writing to `/Applications/`. For a developer with a leftover
+`./script/build` output at `.build/xcodebuild/Stimmgabel.app`, that means
+`/Applications/` stays empty after install — the v0.1.0 footgun fixed in
+infrastructure-011. Inspect the resulting metadata with
+`pkgutil --expand dist/Stimmgabel-X.Y.Z.pkg /tmp/sg-expand` and confirm
+`/tmp/sg-expand/Stimmgabel-component.pkg/PackageInfo` contains
+`<relocate/>` (self-closing, empty) rather than a populated
+`<relocate><bundle id="com.innoq.stimmgabel"/></relocate>` block.
+
 If anything fails, the run shows the failed step in red. Common failures:
 
 - **Cert import error** — `APPLE_DEV_CERT_P12_BASE64` is stale (expired
